@@ -1,238 +1,235 @@
 "use strict";
 
-/*
- * VizoChat Like System
- * Version: 1.0
- *
- * Rules:
- * - Only one Like per chat session.
- * - Like is NOT immediately valid.
- * - Receiver must remain connected for 10 seconds.
- * - Valid Like = ₹2 for receiver.
- *
- * Final validation will be done by the backend.
- */
-
-const VizoChatLike = {
-
-  LIKE_USED_KEY: "vizochat_like_used",
-
-  likeUsed: false,
-  likeSentAt: null,
-  receiverConnectedAt: null,
-
-
-  init() {
-
-    this.loadState();
-    this.bindButton();
-
-  },
-
-
-  bindButton() {
-
-    const button =
-      document.getElementById("likeButton");
-
-    if (!button) {
-      return;
-    }
-
-
-    button.addEventListener(
-      "click",
-      () => this.sendLike()
-    );
-
-    this.updateButton();
-
-  },
-
-
-  loadState() {
-
-    try {
-
-      const value =
-        sessionStorage.getItem(
-          this.LIKE_USED_KEY
-        );
-
-      this.likeUsed = value === "true";
-
-    } catch (error) {
-
-      console.warn(
-        "VizoChat Like: Unable to read session state.",
-        error
-      );
-
-      this.likeUsed = false;
-    }
-
-  },
-
-
-  saveState() {
-
-    try {
-
-      sessionStorage.setItem(
-        this.LIKE_USED_KEY,
-        String(this.likeUsed)
-      );
-
-    } catch (error) {
-
-      console.warn(
-        "VizoChat Like: Unable to save session state.",
-        error
-      );
-
-    }
-
-  },
-
-
-  setReceiverConnected() {
-
-    this.receiverConnectedAt =
-      Date.now();
-
-  },
-
-
-  clearSession() {
-
-    this.likeUsed = false;
-    this.likeSentAt = null;
-    this.receiverConnectedAt = null;
-
-    try {
-
-      sessionStorage.removeItem(
-        this.LIKE_USED_KEY
-      );
-
-    } catch (error) {
-
-      console.warn(
-        "VizoChat Like: Unable to clear session.",
-        error
-      );
-
-    }
-
-    this.updateButton();
-
-  },
-
-
-  canLike() {
-
-    return !this.likeUsed;
-
-  },
-
-
-  sendLike() {
-
-    if (this.likeUsed) {
-
-      this.showMessage(
-        "You already used your Like for this chat."
-      );
-
-      return false;
-    }
-
-
-    this.likeUsed = true;
-
-    this.likeSentAt = Date.now();
-
-    this.saveState();
-
-    this.updateButton();
-
-
-    /*
-     * IMPORTANT:
-     * The frontend does NOT decide whether a Like
-     * is valid or whether ₹2 should be added.
-     *
-     * Backend will verify:
-     * 1. Correct chat session
-     * 2. Only one Like
-     * 3. Receiver connection
-     * 4. 10-second requirement
-     * 5. Valid Like
-     * 6. ₹2 earnings
-     */
-
-
-    this.showMessage(
-      "Like sent. It will become valid if the receiver stays connected for 10 seconds."
-    );
-
-
-    return true;
-
-  },
-
-
-  updateButton() {
-
-    const button =
-      document.getElementById("likeButton");
-
-    if (!button) {
-      return;
-    }
-
-
-    if (this.likeUsed) {
-
-      button.disabled = true;
-
-      button.textContent =
-        "Like Sent";
-
-    } else {
-
-      button.disabled = false;
-
-      button.textContent =
-        "Like";
-
-    }
-
-  },
-
-
-  showMessage(message) {
-
-    const status =
-      document.getElementById("chatStatus");
-
-    if (status) {
-      status.textContent = message;
-    }
-
+const LIKE_API_BASE =
+  window.VizoAuth?.VIZOCHAT_API ||
+  "http://localhost:5000/api";
+
+let likeSentThisMatch = false;
+let currentLikeId = null;
+
+function getChatMatchId() {
+  return window.VizoChat?.getCurrentMatchId?.() || null;
+}
+
+function getChatPartnerId() {
+  return window.VizoChat?.getCurrentPartnerId?.() || null;
+}
+
+function getChatUserId() {
+  return window.VizoAuth?.getUserId?.() || null;
+}
+
+function setLikeButtonState(disabled, text) {
+  const button =
+    document.getElementById("likeButton");
+
+  if (!button) {
+    return;
   }
 
-};
+  button.disabled = disabled;
 
+  if (text) {
+    button.textContent = text;
+  }
+}
+
+function resetLikeForNewMatch() {
+  likeSentThisMatch = false;
+  currentLikeId = null;
+
+  setLikeButtonState(false, "Like");
+}
+
+async function sendLike() {
+  if (likeSentThisMatch) {
+    return;
+  }
+
+  const senderId = getChatUserId();
+  const receiverId = getChatPartnerId();
+  const matchId = getChatMatchId();
+
+  if (!senderId || !receiverId || !matchId) {
+    alert("You are not connected to anyone yet.");
+    return;
+  }
+
+  try {
+    setLikeButtonState(true, "Sending...");
+
+    const response = await fetch(
+      `${LIKE_API_BASE}/likes`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          senderId,
+          receiverId,
+          matchId
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Unable to send Like."
+      );
+    }
+
+    likeSentThisMatch = true;
+    currentLikeId = data.like?.id || null;
+
+    setLikeButtonState(
+      true,
+      "Liked"
+    );
+
+    showLikeMessage(
+      "Like sent. It becomes valid if they stay connected for 10 seconds."
+    );
+
+    if (currentLikeId) {
+      monitorLikeValidation(currentLikeId);
+    }
+  } catch (error) {
+    console.error(
+      "Like error:",
+      error
+    );
+
+    setLikeButtonState(
+      false,
+      "Like"
+    );
+
+    showLikeMessage(
+      error.message || "Unable to send Like."
+    );
+  }
+}
+
+async function monitorLikeValidation(likeId) {
+  let attempts = 0;
+
+  const maxAttempts = 30;
+
+  const check = async () => {
+    if (!likeId || attempts >= maxAttempts) {
+      return;
+    }
+
+    attempts += 1;
+
+    try {
+      const response = await fetch(
+        `${LIKE_API_BASE}/likes/${encodeURIComponent(likeId)}`
+      );
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+
+      const like = data.like;
+
+      if (!like) {
+        return;
+      }
+
+      if (like.status === "valid") {
+        showLikeMessage(
+          "Like is valid. ₹2 has been added to the receiver's earnings."
+        );
+
+        return;
+      }
+
+      if (like.status === "invalid") {
+        showLikeMessage(
+          "Like was not valid because the connection did not last 10 seconds."
+        );
+
+        return;
+      }
+
+      setTimeout(check, 1000);
+    } catch (error) {
+      console.error(
+        "Like validation check error:",
+        error
+      );
+    }
+  };
+
+  check();
+}
+
+function showLikeMessage(message) {
+  let messageElement =
+    document.getElementById("likeMessage");
+
+  if (!messageElement) {
+    messageElement =
+      document.createElement("div");
+
+    messageElement.id =
+      "likeMessage";
+
+    messageElement.style.marginTop =
+      "10px";
+
+    messageElement.style.textAlign =
+      "center";
+
+    const button =
+      document.getElementById("likeButton");
+
+    if (button?.parentElement) {
+      button.parentElement.appendChild(
+        messageElement
+      );
+    }
+
+    else {
+      document.body.appendChild(
+        messageElement
+      );
+    }
+  }
+
+  messageElement.textContent = message;
+}
+
+function setupLikeButton() {
+  const button =
+    document.getElementById("likeButton");
+
+  if (!button) {
+    return;
+  }
+
+  button.addEventListener(
+    "click",
+    sendLike
+  );
+}
 
 document.addEventListener(
   "DOMContentLoaded",
   () => {
+    setupLikeButton();
 
-    VizoChatLike.init();
-
+    window.VizoLike = {
+      sendLike,
+      resetLikeForNewMatch,
+      getLikeId: () => currentLikeId,
+      hasSentLike: () => likeSentThisMatch
+    };
   }
 );
-
-
-window.VizoChatLike = VizoChatLike;
