@@ -1,56 +1,25 @@
 "use strict";
 
 const express = require("express");
-
 const {
-  LEADERBOARD_LIMIT
-} = require("../config/constants");
+  getTopUsers,
+  getUserRank
+} = require("../services/leaderboardService");
 
 const router = express.Router();
 
-// Temporary leaderboard data.
-// Database connect होने के बाद यही data database से आएगा.
-const users = new Map();
-
-// Add/update user for leaderboard
-function addUser(user) {
-  if (!user || !user.id) {
-    return;
-  }
-
-  users.set(user.id, user);
-}
-
-// Get Top 20 users
+// Top 20 leaderboard
 router.get("/", (req, res) => {
   try {
-    const leaderboard = Array.from(users.values())
-      .filter((user) => user.status !== "banned")
-      .sort((a, b) => {
-        return (
-          Number(b.validLikes || 0) -
-          Number(a.validLikes || 0)
-        );
-      })
-      .slice(0, LEADERBOARD_LIMIT)
-      .map((user, index) => ({
-        rank: index + 1,
-        id: user.id,
-        name: user.name || "VizoChat User",
-        photo: user.photo || "",
-        validLikes: Number(user.validLikes || 0)
-      }));
+    const users = getTopUsers();
 
     return res.json({
       success: true,
-      limit: LEADERBOARD_LIMIT,
-      leaderboard
+      limit: 20,
+      users
     });
   } catch (error) {
-    console.error(
-      "Leaderboard error:",
-      error
-    );
+    console.error("Leaderboard error:", error);
 
     return res.status(500).json({
       success: false,
@@ -59,7 +28,30 @@ router.get("/", (req, res) => {
   }
 });
 
-module.exports = {
-  router,
-  addUser
-};
+// Get a user's rank
+router.get("/rank/:userId", (req, res) => {
+  try {
+    const rank = getUserRank(req.params.userId);
+
+    if (rank === null) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found."
+      });
+    }
+
+    return res.json({
+      success: true,
+      rank
+    });
+  } catch (error) {
+    console.error("Rank error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to get user rank."
+    });
+  }
+});
+
+module.exports = router;
