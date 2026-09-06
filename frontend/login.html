@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="description"
+    content="Login to VizoChat with Google."
+  >
+
+  <title>Login - VizoChat</title>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+
+    <a
+      href="index.html"
+      class="logo"
+      aria-label="VizoChat Home"
+    >
+      VizoChat
+    </a>
+
+    <nav
+      class="nav-menu"
+      aria-label="Main navigation"
+    >
+      <a href="index.html">Home</a>
+      <a href="leaderboard.html">Top 20</a>
+      <a href="help.html">Help</a>
+    </nav>
+
+  </header>
+
+
+  <!-- Login -->
+  <main>
+
+    <section class="hero">
+
+      <div class="hero-content">
+
+        <p class="hero-label">
+          VIZOCHAT ACCOUNT
+        </p>
+
+        <h1>
+          Welcome back.
+        </h1>
+
+        <p class="hero-description">
+          Sign in with your Google account to continue
+          using VizoChat.
+        </p>
+
+
+        <!-- Google Login Button -->
+        <div class="hero-actions">
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            id="googleLoginButton"
+          >
+            <span aria-hidden="true">G</span>
+            Continue with Google
+          </button>
+
+        </div>
+
+
+        <!-- Login Status -->
+        <p
+          id="loginMessage"
+          class="guest-info"
+          role="status"
+          aria-live="polite"
+        >
+          Your account is secure and your profile will
+          be created after login.
+        </p>
+
+
+        <!-- Guest Option -->
+        <div style="margin-top: 30px;">
+
+          <a
+            href="chat.html"
+            class="btn btn-primary"
+          >
+            Continue as Guest
+          </a>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- Login Information -->
+    <section class="features">
+
+      <div class="section-heading">
+
+        <p class="section-label">
+          WHY LOGIN?
+        </p>
+
+        <h2>
+          Your VizoChat profile
+        </h2>
+
+      </div>
+
+
+      <div class="feature-grid">
+
+        <article class="feature-card">
+
+          <div class="feature-icon">
+            ❤️
+          </div>
+
+          <h3>
+            Valid Likes
+          </h3>
+
+          <p>
+            Your valid Likes will be saved on your
+            VizoChat profile.
+          </p>
+
+        </article>
+
+
+        <article class="feature-card">
+
+          <div class="feature-icon">
+            💰
+          </div>
+
+          <h3>
+            Earnings
+          </h3>
+
+          <p>
+            Every valid Like can add ₹2 to your
+            VizoChat earnings.
+          </p>
+
+        </article>
+
+
+        <article class="feature-card">
+
+          <div class="feature-icon">
+            🏆
+          </div>
+
+          <h3>
+            Top 20
+          </h3>
+
+          <p>
+            Your valid Likes can contribute to the
+            Top 20 leaderboard.
+          </p>
+
+        </article>
+
+
+        <article class="feature-card">
+
+          <div class="feature-icon">
+            🎥
+          </div>
+
+          <h3>
+            Random Chat
+          </h3>
+
+          <p>
+            Continue meeting new people through
+            random video chat.
+          </p>
+
+        </article>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- Footer -->
+  <footer class="site-footer">
+
+    <div class="footer-content">
+
+      <div>
+
+        <strong>
+          VizoChat
+        </strong>
+
+        <p>
+          Meet someone new.
+        </p>
+
+      </div>
+
+
+      <div class="footer-links">
+
+        <a href="index.html">
+          Home
+        </a>
+
+        <a href="leaderboard.html">
+          Top 20
+        </a>
+
+        <a href="help.html">
+          Help
+        </a>
+
+      </div>
+
+    </div>
+
+
+    <div class="footer-bottom">
+
+      <p>
+        © <span id="currentYear"></span>
+        VizoChat. All rights reserved.
+      </p>
+
+    </div>
+
+  </footer>
+
+
+  <!-- Login Page Script -->
+  <script>
+    "use strict";
+
+    const yearElement =
+      document.getElementById("currentYear");
+
+    if (yearElement) {
+      yearElement.textContent =
+        new Date().getFullYear();
+    }
+
+
+    const googleLoginButton =
+      document.getElementById("googleLoginButton");
+
+    const loginMessage =
+      document.getElementById("loginMessage");
+
+
+    if (googleLoginButton) {
+
+      googleLoginButton.addEventListener(
+        "click",
+        function () {
+
+          loginMessage.textContent =
+            "Google login will be connected when the authentication backend is added.";
+
+        }
+      );
+
+    }
+  </script>
+
+</body>
+</html>
