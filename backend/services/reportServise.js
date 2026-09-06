@@ -1,5 +1,7 @@
 "use strict";
 
+const crypto = require("crypto");
+
 const {
   REPORT_WINDOW_MINUTES,
   REPORT_BAN_LIMIT,
@@ -7,139 +9,131 @@ const {
 } = require("../config/constants");
 
 const {
-  createReport,
-  markReportProcessed,
-  isActiveReport,
-  isWithinTimeWindow
-} = require("../models/report");
-
-const {
-  banUser,
-  isUserBanned
+  getUserById,
+  banUser
 } = require("../models/user");
 
-// Temporary in-memory storage.
-// Later this will be replaced with database storage.
 const reports = new Map();
 
-function generateReportId() {
-  return `report_${Date.now()}_${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
-}
-
 function createUserReport({
-  matchId,
   reporterId,
   reportedUserId,
-  reason = ""
+  matchId = null,
+  reason = "Other"
 }) {
-  if (!matchId) {
-    throw new Error("Match ID is required.");
-  }
-
-  if (!reporterId) {
-    throw new Error("Reporter ID is required.");
-  }
-
-  if (!reportedUserId) {
-    throw new Error("Reported user ID is required.");
+  if (!reporterId || !reportedUserId) {
+    throw new Error(
+      "Reporter and reported user IDs are required."
+    );
   }
 
   if (reporterId === reportedUserId) {
-    throw new Error("A user cannot report themselves.");
+    throw new Error(
+      "A user cannot report themselves."
+    );
   }
 
-  const reportId = generateReportId();
+  const reportedUser = getUserById(reportedUserId);
 
-  const report = createReport({
+  if (!reportedUser) {
+    throw new Error(
+      "Reported user not found."
+    );
+  }
+
+  const reportId = crypto.randomUUID();
+
+  const report = {
     id: reportId,
-    matchId,
     reporterId,
     reportedUserId,
-    reason
-  });
+    matchId,
+    reason,
+    status: "active",
+    createdAt: new Date(),
+    processedAt: null
+  };
 
   reports.set(reportId, report);
 
-  const banResult = checkAndApplyAutomaticBan(reportedUserId);
+  const banResult = checkAndApplyAutomaticBan(
+    reportedUserId
+  );
 
   return {
     report,
-    banApplied: banResult.banned,
-    bannedUntil: banResult.bannedUntil
+    automaticBan: banResult
   };
 }
 
-function getRecentReportsForUser(reportedUserId) {
+function getRecentReportsForUser(userId) {
   const now = Date.now();
-  const windowMs = REPORT_WINDOW_MINUTES * 60 * 1000;
 
-  const recentReports = [];
+  const windowMs =
+    REPORT_WINDOW_MINUTES * 60 * 1000;
 
-  for (const report of reports.values()) {
-    if (!isActiveReport(report)) {
-      continue;
+  return Array.from(reports.values()).filter(
+    (report) => {
+      if (report.reportedUserId !== userId) {
+        return false;
+      }
+
+      const reportTime =
+        new Date(report.createdAt).getTime();
+
+      return now - reportTime <= windowMs;
     }
-
-    if (report.reportedUserId !== reportedUserId) {
-      continue;
-    }
-
-    const createdTime = new Date(report.createdAt).getTime();
-
-    if (Number.isNaN(createdTime)) {
-      continue;
-    }
-
-    if (now - createdTime <= windowMs) {
-      recentReports.push(report);
-    }
-  }
-
-  return recentReports;
+  );
 }
 
-function checkAndApplyAutomaticBan(reportedUserId) {
-  const recentReports = getRecentReportsForUser(reportedUserId);
+function getReportCountForUser(userId) {
+  return getRecentReportsForUser(userId).length;
+}
+
+function checkAndApplyAutomaticBan(userId) {
+  const recentReports =
+    getRecentReportsForUser(userId);
 
   if (recentReports.length < REPORT_BAN_LIMIT) {
     return {
       banned: false,
-      bannedUntil: null,
       reportCount: recentReports.length
     };
   }
 
-  const currentlyBanned = isUserBanned(reportedUserId);
+  const user = getUserById(userId);
 
-  if (currentlyBanned) {
+  if (!user) {
     return {
-      banned: true,
-      bannedUntil: null,
+      banned: false,
       reportCount: recentReports.length
     };
   }
 
-  const bannedUntil = new Date(
-    Date.now() + AUTOMATIC_BAN_DAYS * 24 * 60 * 60 * 1000
-  );
+  const alreadyBanned =
+    user.status === "banned" &&
+    user.bannedUntil &&
+    new Date() < new Date(user.bannedUntil);
 
-  banUser(reportedUserId, bannedUntil);
+  if (!alreadyBanned) {
+    banUser(
+      userId,
+      AUTOMATIC_BAN_DAYS
+    );
+  }
 
   for (const report of recentReports) {
-    markReportProcessed(report);
+    report.status = "processed";
+    report.processedAt = new Date();
   }
 
   return {
     banned: true,
-    bannedUntil,
-    reportCount: recentReports.length
+    reportCount: recentReports.length,
+    banDays: AUTOMATIC_BAN_DAYS,
+    bannedUntil:
+      getUserById(userId)?.bannedUntil || null
   };
-}
-
-function getReportCountLastHour(reportedUserId) {
-  return getRecentReportsForUser(reportedUserId).length;
 }
 
 function getReportById(reportId) {
@@ -151,28 +145,29 @@ function getAllReports() {
 }
 
 function processReport(reportId) {
-  const report = getReportById(reportId);
+  const report = reports.get(reportId);
 
   if (!report) {
-    throw new Error("Report not found.");
+    return null;
   }
 
-  markReportProcessed(report);
+  report.status = "processed";
+  report.processedAt = new Date();
 
   return report;
 }
 
 function cleanupOldReports() {
   const now = Date.now();
-  const windowMs = REPORT_WINDOW_MINUTES * 60 * 1000;
+
+  const windowMs =
+    REPORT_WINDOW_MINUTES * 60 * 1000;
 
   for (const [reportId, report] of reports.entries()) {
-    const createdTime = new Date(report.createdAt).getTime();
+    const reportTime =
+      new Date(report.createdAt).getTime();
 
-    if (
-      !Number.isNaN(createdTime) &&
-      now - createdTime > windowMs
-    ) {
+    if (now - reportTime > windowMs) {
       reports.delete(reportId);
     }
   }
@@ -180,8 +175,9 @@ function cleanupOldReports() {
 
 module.exports = {
   createUserReport,
+  getRecentReportsForUser,
+  getReportCountForUser,
   checkAndApplyAutomaticBan,
-  getReportCountLastHour,
   getReportById,
   getAllReports,
   processReport,
