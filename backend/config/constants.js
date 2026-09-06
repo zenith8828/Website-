@@ -1,0 +1,32 @@
+"use strict";
+
+/*
+ * VizoChat Application Constants
+ */
+
+const GUEST_MATCH_LIMIT = 10;
+
+const LIKE_VALUE_RUPEES = 2;
+
+const LIKE_VALIDATION_SECONDS = 10;
+
+const REPORT_WINDOW_MINUTES = 60;
+
+const REPORT_BAN_LIMIT = 5;
+
+const AUTOMATIC_BAN_DAYS = 23;
+
+const LEADERBOARD_LIMIT = 20;
+
+const SUPPORT_TELEGRAM = "@zenithvizo";
+
+module.exports = {
+  GUEST_MATCH_LIMIT,
+  LIKE_VALUE_RUPEES,
+  LIKE_VALIDATION_SECONDS,
+  REPORT_WINDOW_MINUTES,
+  REPORT_BAN_LIMIT,
+  AUTOMATIC_BAN_DAYS,
+  LEADERBOARD_LIMIT,
+  SUPPORT_TELEGRAM
+};
