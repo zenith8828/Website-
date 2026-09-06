@@ -1,186 +1,174 @@
 "use strict";
 
-/*
- * VizoChat User Model
- *
- * This model describes the user data that will be stored
- * by the backend/database.
- *
- * Important:
- * Likes and earnings must be calculated and verified
- * by the backend, never trusted from the frontend.
- */
+const {
+  LIKE_VALUE_RUPEES
+} = require("../config/constants");
 
 const USER_STATUS = {
   ACTIVE: "active",
   BANNED: "banned"
 };
 
+const users = new Map();
 
 function createUser({
   id,
   googleId = null,
   name = "VizoChat User",
-  email = "",
-  photo = ""
-} = {}) {
-
+  email = null,
+  photo = null
+}) {
   if (!id) {
     throw new Error("User ID is required.");
   }
 
+  if (users.has(id)) {
+    return users.get(id);
+  }
 
-  return {
-    id: String(id),
-
-    googleId:
-      googleId ? String(googleId) : null,
-
-    name:
-      String(name).trim() || "VizoChat User",
-
-    email:
-      String(email).trim().toLowerCase(),
-
-    photo:
-      String(photo).trim(),
+  const user = {
+    id,
+    googleId,
+    name,
+    email,
+    photo,
 
     validLikes: 0,
-
     totalEarnings: 0,
 
     status: USER_STATUS.ACTIVE,
-
     bannedUntil: null,
 
     createdAt: new Date(),
-
     updatedAt: new Date()
   };
+
+  users.set(id, user);
+
+  return user;
 }
 
+function getUserById(userId) {
+  if (!userId) {
+    return null;
+  }
 
-/**
- * Check whether a user is currently banned.
- */
-function isUserBanned(user) {
+  return users.get(userId) || null;
+}
+
+function getUserByGoogleId(googleId) {
+  if (!googleId) {
+    return null;
+  }
+
+  for (const user of users.values()) {
+    if (user.googleId === googleId) {
+      return user;
+    }
+  }
+
+  return null;
+}
+
+function getUserByEmail(email) {
+  if (!email) {
+    return null;
+  }
+
+  for (const user of users.values()) {
+    if (user.email === email) {
+      return user;
+    }
+  }
+
+  return null;
+}
+
+function getAllUsers() {
+  return Array.from(users.values());
+}
+
+function addValidLike(userId) {
+  const user = getUserById(userId);
+
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  user.validLikes += 1;
+  user.totalEarnings += LIKE_VALUE_RUPEES;
+  user.updatedAt = new Date();
+
+  return user;
+}
+
+function isUserBanned(userId) {
+  const user = getUserById(userId);
 
   if (!user) {
     return false;
   }
-
 
   if (user.status !== USER_STATUS.BANNED) {
     return false;
   }
 
+  if (user.bannedUntil && new Date() >= new Date(user.bannedUntil)) {
+    user.status = USER_STATUS.ACTIVE;
+    user.bannedUntil = null;
+    user.updatedAt = new Date();
 
-  if (!user.bannedUntil) {
-    return true;
-  }
-
-
-  return new Date(user.bannedUntil) > new Date();
-}
-
-
-/**
- * Check whether a user can use VizoChat.
- */
-function canUserAccess(user) {
-
-  if (!user) {
     return false;
   }
 
-
-  return !isUserBanned(user);
+  return true;
 }
 
+function canUserAccess(userId) {
+  return !isUserBanned(userId);
+}
 
-/**
- * Add a valid Like to a user.
- *
- * The actual validation of the Like will happen
- * in the Like service/backend.
- */
-function addValidLike(user, likeValue) {
+function banUser(userId, days = 23) {
+  const user = getUserById(userId);
 
   if (!user) {
     throw new Error("User not found.");
   }
 
-
-  if (typeof likeValue !== "number" ||
-      !Number.isFinite(likeValue) ||
-      likeValue <= 0) {
-
-    throw new Error("Invalid Like value.");
-  }
-
-
-  user.validLikes += 1;
-
-  user.totalEarnings += likeValue;
-
-  user.updatedAt = new Date();
-
-
-  return user;
-}
-
-
-/**
- * Ban a user.
- */
-function banUser(user, bannedUntil) {
-
-  if (!user) {
-    throw new Error("User not found.");
-  }
-
+  const bannedUntil = new Date();
+  bannedUntil.setDate(bannedUntil.getDate() + days);
 
   user.status = USER_STATUS.BANNED;
-
-  user.bannedUntil =
-    bannedUntil
-      ? new Date(bannedUntil)
-      : null;
-
+  user.bannedUntil = bannedUntil;
   user.updatedAt = new Date();
-
 
   return user;
 }
 
-
-/**
- * Unban a user.
- */
-function unbanUser(user) {
+function unbanUser(userId) {
+  const user = getUserById(userId);
 
   if (!user) {
     throw new Error("User not found.");
   }
 
-
   user.status = USER_STATUS.ACTIVE;
-
   user.bannedUntil = null;
-
   user.updatedAt = new Date();
-
 
   return user;
 }
-
 
 module.exports = {
   USER_STATUS,
   createUser,
+  getUserById,
+  getUserByGoogleId,
+  getUserByEmail,
+  getAllUsers,
+  addValidLike,
   isUserBanned,
   canUserAccess,
-  addValidLike,
   banUser,
   unbanUser
 };
