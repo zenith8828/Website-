@@ -1,129 +1,129 @@
 "use strict";
 
-/*
- * VizoChat Profile
- * Version: 1.0
- *
- * Profile data will eventually come from the backend.
- * Do not trust frontend values for Likes or Earnings.
- */
+const PROFILE_API_BASE =
+  window.VizoAuth?.VIZOCHAT_API ||
+  "http://localhost:5000/api";
 
-const VizoChatProfile = {
+async function loadProfile() {
+  const message =
+    document.getElementById("profileMessage");
 
-  elements: {},
-
-  init() {
-    this.cacheElements();
-    this.loadProfile();
-  },
-
-
-  cacheElements() {
-
-    this.elements.name =
-      document.getElementById("profileName");
-
-    this.elements.email =
-      document.getElementById("profileEmail");
-
-    this.elements.photo =
-      document.getElementById("profilePhoto");
-
-    this.elements.likes =
-      document.getElementById("validLikes");
-
-    this.elements.earnings =
-      document.getElementById("totalEarnings");
-
-  },
-
-
-  loadProfile() {
-
-    /*
-     * If authentication system is available,
-     * use the logged-in user's basic information.
-     */
-
-    if (
-      window.VizoChatAuth &&
-      window.VizoChatAuth.isLoggedIn()
-    ) {
-
-      const user =
-        window.VizoChatAuth.getUser();
-
-      if (user) {
-
-        this.setText(
-          this.elements.name,
-          user.name || "VizoChat User"
-        );
-
-        this.setText(
-          this.elements.email,
-          user.email || ""
-        );
-
-
-        if (
-          this.elements.photo &&
-          user.photo
-        ) {
-
-          this.elements.photo.src =
-            user.photo;
-
-          this.elements.photo.alt =
-            user.name || "Profile photo";
-
-        }
-
-      }
-
-    }
-
-
-    /*
-     * Temporary display values.
-     *
-     * Real Likes and Earnings will come
-     * securely from the backend.
-     */
-
-    this.setText(
-      this.elements.likes,
-      "0"
-    );
-
-    this.setText(
-      this.elements.earnings,
-      "₹0"
-    );
-
-  },
-
-
-  setText(element, value) {
-
-    if (!element) {
+  try {
+    if (!window.VizoAuth?.isLoggedIn()) {
+      window.location.href = "login.html";
       return;
     }
 
-    element.textContent = String(value);
+    const response = await fetch(
+      `${PROFILE_API_BASE}/profile`,
+      {
+        method: "GET",
+        headers: window.VizoAuth.getAuthHeaders()
+      }
+    );
 
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.message ||
+        "Unable to load profile."
+      );
+    }
+
+    const profile = data.profile;
+
+    updateProfile(profile);
+
+    if (message) {
+      message.textContent = "";
+    }
+  } catch (error) {
+    console.error(
+      "Profile loading error:",
+      error
+    );
+
+    if (message) {
+      message.textContent =
+        error.message ||
+        "Unable to load profile.";
+    }
+  }
+}
+
+function updateProfile(profile) {
+  const name =
+    document.getElementById("profileName");
+
+  const email =
+    document.getElementById("profileEmail");
+
+  const photo =
+    document.getElementById("profilePhoto");
+
+  const validLikes =
+    document.getElementById("validLikes");
+
+  const totalEarnings =
+    document.getElementById("totalEarnings");
+
+  if (name) {
+    name.textContent =
+      profile.name || "VizoChat User";
   }
 
-};
+  if (email) {
+    email.textContent =
+      profile.email || "";
+  }
 
+  if (photo) {
+    if (profile.photo) {
+      photo.src = profile.photo;
+      photo.style.display = "block";
+    } else {
+      photo.removeAttribute("src");
+      photo.style.display = "none";
+    }
+  }
+
+  if (validLikes) {
+    validLikes.textContent =
+      Number(profile.validLikes || 0);
+  }
+
+  if (totalEarnings) {
+    totalEarnings.textContent =
+      `₹${Number(
+        profile.totalEarnings || 0
+      )}`;
+  }
+}
+
+function setupLogout() {
+  const button =
+    document.getElementById("logoutButton");
+
+  if (!button) {
+    return;
+  }
+
+  button.addEventListener(
+    "click",
+    async () => {
+      button.disabled = true;
+      button.textContent = "Logging out...";
+
+      await window.VizoAuth.logoutUser();
+    }
+  );
+}
 
 document.addEventListener(
   "DOMContentLoaded",
   () => {
-    VizoChatProfile.init();
+    setupLogout();
+    loadProfile();
   }
 );
-
-
-window.VizoChatProfile =
-  VizoChatProfile;
