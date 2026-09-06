@@ -8,473 +8,899 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { Server } = require("socket.io");
 
-const routes = require("./routes");
+const apiRoutes = require("./routes");
 const {
   canGuestStartMatch,
   recordGuestMatch
 } = require("./services/guestService");
+const {
+  canUserAccess
+} = require("./models/user");
+
 
 const app = express();
 const server = http.createServer(app);
 
-const PORT = process.env.PORT || 5000;
-const FRONTEND_URL = process.env.FRONTEND_URL || "*";
 
-// Security
+// ================================
+// CONFIGURATION
+// ================================
+
+const PORT = Number(process.env.PORT) || 5000;
+
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ||
+  "http://localhost:3000";
+
+
+// ================================
+// MIDDLEWARE
+// ================================
+
 app.use(
   helmet({
-    crossOriginResourcePolicy: false
+    crossOriginResourcePolicy: {
+      policy: "cross-origin"
+    }
   })
 );
 
-// CORS
 app.use(
   cors({
-    origin: FRONTEND_URL === "*" ? true : FRONTEND_URL,
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true
   })
 );
 
-// Body parser
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Home
+
+// ================================
+// API ROUTES
+// ================================
+
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    service: "VizoChat Backend",
+    name: "VizoChat Backend",
     status: "online"
   });
 });
 
-// API routes
-app.use("/api", routes);
+app.use("/api", apiRoutes);
 
-// Socket.IO
+
+// ================================
+// SOCKET.IO
+// ================================
+
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL === "*" ? "*" : FRONTEND_URL,
+    origin: FRONTEND_URL,
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
-// Waiting users
+
+// ================================
+// MATCH STORAGE
+// ================================
+
 const waitingUsers = [];
-
-// Active matches
 const activeMatches = new Map();
-
-// Socket user information
 const socketUsers = new Map();
 
-// Remove user from waiting list
+
+// ================================
+// HELPER FUNCTIONS
+// ================================
+
 function removeFromWaiting(socketId) {
-  const index = waitingUsers.indexOf(socketId);
+
+  const index =
+    waitingUsers.findIndex(
+      (user) => user.socketId === socketId
+    );
 
   if (index !== -1) {
     waitingUsers.splice(index, 1);
   }
 }
 
-// Get socket
+
 function getSocketById(socketId) {
-  return io.sockets.sockets.get(socketId);
+  return io.sockets.sockets.get(socketId) || null;
 }
 
-// Get active match
+
 function getActiveMatch(socketId) {
-  return activeMatches.get(socketId) || null;
+
+  for (const match of activeMatches.values()) {
+
+    if (
+      match.userA === socketId ||
+      match.userB === socketId
+    ) {
+      return match;
+    }
+  }
+
+  return null;
 }
 
-// Check whether two sockets belong to the same match
-function isValidPartner(socketId, partnerId) {
-  const match = getActiveMatch(socketId);
+
+function getPartnerSocketId(match, socketId) {
+
+  if (!match) {
+    return null;
+  }
+
+  if (match.userA === socketId) {
+    return match.userB;
+  }
+
+  if (match.userB === socketId) {
+    return match.userA;
+  }
+
+  return null;
+}
+
+
+function isValidPartner(socketId, partnerSocketId) {
+
+  const match =
+    getActiveMatch(socketId);
 
   if (!match) {
     return false;
   }
 
   return (
-    (match.userA === socketId && match.userB === partnerId) ||
-    (match.userB === socketId && match.userA === partnerId)
+    getPartnerSocketId(
+      match,
+      socketId
+    ) === partnerSocketId
   );
 }
 
-// End current match
-function endMatchForSocket(socketId, reason = "ended") {
-  const match = getActiveMatch(socketId);
+
+function endMatchForSocket(
+  socketId,
+  reason = "ended"
+) {
+
+  const match =
+    getActiveMatch(socketId);
 
   if (!match) {
+    removeFromWaiting(socketId);
     return null;
   }
 
-  const otherSocketId =
-    match.userA === socketId
-      ? match.userB
-      : match.userA;
+  activeMatches.delete(match.matchId);
 
-  activeMatches.delete(match.userA);
-  activeMatches.delete(match.userB);
+  const partnerSocketId =
+    getPartnerSocketId(
+      match,
+      socketId
+    );
 
-  const otherSocket = getSocketById(otherSocketId);
+  const partnerSocket =
+    partnerSocketId
+      ? getSocketById(partnerSocketId)
+      : null;
 
-  if (otherSocket) {
-    otherSocket.emit("partner-left", {
-      matchId: match.matchId,
-      reason
-    });
+  if (partnerSocket) {
+
+    partnerSocket.emit(
+      "partner-disconnected",
+      {
+        matchId: match.matchId,
+        reason
+      }
+    );
   }
 
   return match;
 }
 
-// Socket connection
+
+function sendToPartner(
+  socket,
+  event,
+  data
+) {
+
+  const match =
+    getActiveMatch(socket.id);
+
+  if (!match) {
+    return false;
+  }
+
+  const partnerSocketId =
+    getPartnerSocketId(
+      match,
+      socket.id
+    );
+
+  if (!partnerSocketId) {
+    return false;
+  }
+
+  const partnerSocket =
+    getSocketById(partnerSocketId);
+
+  if (!partnerSocket) {
+    return false;
+  }
+
+  partnerSocket.emit(
+    event,
+    data
+  );
+
+  return true;
+}
+
+
+// ================================
+// SOCKET CONNECTION
+// ================================
+
 io.on("connection", (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
 
-  /*
-   * Optional client information.
-   *
-   * Frontend can send:
-   * {
-   *   userId: "...",
-   *   isGuest: true
-   * }
-   *
-   * Existing frontend without this data will still work.
-   */
-  socket.on("register-user", (data = {}) => {
-    const userId =
-      typeof data.userId === "string" && data.userId.trim()
-        ? data.userId.trim()
-        : null;
+  console.log(
+    `Socket connected: ${socket.id}`
+  );
 
-    const isGuest = data.isGuest === true;
 
-    socketUsers.set(socket.id, {
-      userId,
-      isGuest
-    });
+  // ================================
+  // REGISTER USER
+  // ================================
 
-    socket.emit("user-registered", {
-      success: true,
-      userId,
-      isGuest
-    });
-  });
+  socket.on(
+    "register-user",
+    (data = {}) => {
 
-  // Find random user
-  socket.on("find-random-user", (data = {}) => {
-    // Do not allow a socket already in an active match
-    if (getActiveMatch(socket.id)) {
-      socket.emit("match-error", {
-        message: "You are already in a chat."
-      });
-
-      return;
-    }
-
-    removeFromWaiting(socket.id);
-
-    const socketInfo = socketUsers.get(socket.id) || {
-      userId:
+      const userId =
         typeof data.userId === "string"
-          ? data.userId
-          : null,
-      isGuest: data.isGuest === true
-    };
+          ? data.userId.trim()
+          : "";
 
-    socketUsers.set(socket.id, socketInfo);
+      const isGuest =
+        Boolean(data.isGuest);
 
-    // Guest match limit
-    if (socketInfo.isGuest && socketInfo.userId) {
-      const guestStatus = canGuestStartMatch(
-        socketInfo.userId
+
+      if (!userId) {
+
+        socket.emit(
+          "server-error",
+          {
+            message:
+              "User ID is required."
+          }
+        );
+
+        return;
+      }
+
+
+      socketUsers.set(
+        socket.id,
+        {
+          userId,
+          isGuest
+        }
       );
 
-      if (!guestStatus) {
-        socket.emit("guest-limit-reached", {
-          success: false,
-          message:
-            "Guest match limit reached. Please login with Google to continue."
-        });
 
-        return;
-      }
-    }
-
-    let partnerId = null;
-
-    for (const waitingId of waitingUsers) {
-      if (
-        waitingId !== socket.id &&
-        getSocketById(waitingId) &&
-        !getActiveMatch(waitingId)
-      ) {
-        partnerId = waitingId;
-        break;
-      }
-    }
-
-    // Nobody available
-    if (!partnerId) {
-      waitingUsers.push(socket.id);
-
-      socket.emit("waiting-for-match");
-
-      return;
-    }
-
-    removeFromWaiting(partnerId);
-
-    const partnerSocket = getSocketById(partnerId);
-
-    if (!partnerSocket) {
-      waitingUsers.push(socket.id);
-
-      socket.emit("waiting-for-match");
-
-      return;
-    }
-
-    const partnerInfo =
-      socketUsers.get(partnerId) || {
-        userId: null,
-        isGuest: true
-      };
-
-    // Guest partner limit check
-    if (partnerInfo.isGuest && partnerInfo.userId) {
-      const partnerGuestStatus =
-        canGuestStartMatch(partnerInfo.userId);
-
-      if (!partnerGuestStatus) {
-        waitingUsers.push(socket.id);
-
-        socket.emit("waiting-for-match");
-
-        partnerSocket.emit("guest-limit-reached", {
-          success: false,
-          message:
-            "Guest match limit reached. Please login with Google to continue."
-        });
-
-        return;
-      }
-    }
-
-    // Create match ID
-    const matchId =
-      `match_${Date.now()}_${Math.random()
-        .toString(36)
-        .slice(2, 10)}`;
-
-    const match = {
-      matchId,
-      userA: socket.id,
-      userB: partnerId,
-      userAId: socketInfo.userId,
-      userBId: partnerInfo.userId,
-      startedAt: new Date(),
-      connectedAt: null,
-      status: "active"
-    };
-
-    activeMatches.set(socket.id, match);
-    activeMatches.set(partnerId, match);
-
-    // Record guest matches
-    if (socketInfo.isGuest && socketInfo.userId) {
-      recordGuestMatch(socketInfo.userId);
-    }
-
-    if (partnerInfo.isGuest && partnerInfo.userId) {
-      recordGuestMatch(partnerInfo.userId);
-    }
-
-    // Tell first user to create offer
-    socket.emit("match-found", {
-      matchId,
-      role: "caller",
-      partnerId,
-      partnerUserId: partnerInfo.userId
-    });
-
-    // Tell second user to wait for offer
-    partnerSocket.emit("match-found", {
-      matchId,
-      role: "receiver",
-      partnerId: socket.id,
-      partnerUserId: socketInfo.userId
-    });
-
-    console.log(
-      `Match created: ${socket.id} <-> ${partnerId}`
-    );
-  });
-
-  // Mark WebRTC connection as established
-  socket.on("webrtc-connected", ({ partnerId } = {}) => {
-    if (!partnerId) {
-      return;
-    }
-
-    if (!isValidPartner(socket.id, partnerId)) {
-      return;
-    }
-
-    const match = getActiveMatch(socket.id);
-
-    if (!match) {
-      return;
-    }
-
-    if (!match.connectedAt) {
-      match.connectedAt = new Date();
-      match.status = "connected";
-    }
-
-    const partnerSocket = getSocketById(partnerId);
-
-    if (partnerSocket) {
-      partnerSocket.emit("webrtc-connected", {
-        matchId: match.matchId,
-        partnerId: socket.id
-      });
-    }
-  });
-
-  // WebRTC Offer
-  socket.on(
-    "webrtc-offer",
-    ({ offer, partnerId } = {}) => {
-      if (!offer || !partnerId) {
-        return;
-      }
-
-      if (!isValidPartner(socket.id, partnerId)) {
-        return;
-      }
-
-      const partnerSocket =
-        getSocketById(partnerId);
-
-      if (!partnerSocket) {
-        return;
-      }
-
-      partnerSocket.emit("webrtc-offer", {
-        offer,
-        senderId: socket.id
-      });
-    }
-  );
-
-  // WebRTC Answer
-  socket.on(
-    "webrtc-answer",
-    ({ answer, partnerId } = {}) => {
-      if (!answer || !partnerId) {
-        return;
-      }
-
-      if (!isValidPartner(socket.id, partnerId)) {
-        return;
-      }
-
-      const partnerSocket =
-        getSocketById(partnerId);
-
-      if (!partnerSocket) {
-        return;
-      }
-
-      partnerSocket.emit("webrtc-answer", {
-        answer,
-        senderId: socket.id
-      });
-    }
-  );
-
-  // ICE Candidate
-  socket.on(
-    "webrtc-ice-candidate",
-    ({ candidate, partnerId } = {}) => {
-      if (!candidate || !partnerId) {
-        return;
-      }
-
-      if (!isValidPartner(socket.id, partnerId)) {
-        return;
-      }
-
-      const partnerSocket =
-        getSocketById(partnerId);
-
-      if (!partnerSocket) {
-        return;
-      }
-
-      partnerSocket.emit(
-        "webrtc-ice-candidate",
+      socket.emit(
+        "registered",
         {
-          candidate,
-          senderId: socket.id
+          success: true,
+          userId,
+          isGuest
         }
       );
     }
   );
 
-  // Next user
-  socket.on("next-user", () => {
-    endMatchForSocket(
-      socket.id,
-      "next-user"
-    );
 
-    removeFromWaiting(socket.id);
+  // ================================
+  // FIND RANDOM USER
+  // ================================
 
-    socket.emit("ready-for-next-user");
-  });
+  socket.on(
+    "find-random-user",
+    (data = {}) => {
 
-  // End chat
-  socket.on("end-chat", () => {
-    endMatchForSocket(
-      socket.id,
-      "chat-ended"
-    );
+      const currentUser =
+        socketUsers.get(socket.id);
 
-    removeFromWaiting(socket.id);
-  });
 
-  // Disconnect
-  socket.on("disconnect", () => {
-    console.log(
-      `Socket disconnected: ${socket.id}`
-    );
+      if (!currentUser) {
 
-    removeFromWaiting(socket.id);
+        socket.emit(
+          "server-error",
+          {
+            message:
+              "Please register user first."
+          }
+        );
 
-    endMatchForSocket(
-      socket.id,
-      "disconnected"
-    );
+        return;
+      }
 
-    socketUsers.delete(socket.id);
-  });
-});
 
-// Start server
-server.listen(PORT, () => {
-  console.log("----------------------------------------");
-  console.log("VizoChat Backend");
-  console.log(`Server running on port ${PORT}`);
-  console.log(
-    `Environment: ${
-      process.env.NODE_ENV || "development"
-    }`
+      if (
+        !canUserAccess(
+          currentUser.userId
+        )
+      ) {
+
+        socket.emit(
+          "match-error",
+          {
+            message:
+              "You cannot start a chat right now."
+          }
+        );
+
+        return;
+      }
+
+
+      // Do not create another match
+      // while already connected.
+
+      if (
+        getActiveMatch(socket.id)
+      ) {
+
+        socket.emit(
+          "match-error",
+          {
+            message:
+              "You are already in a chat."
+          }
+        );
+
+        return;
+      }
+
+
+      removeFromWaiting(
+        socket.id
+      );
+
+
+      // ================================
+      // GUEST LIMIT
+      // ================================
+
+      if (currentUser.isGuest) {
+
+        if (
+          !canGuestStartMatch(
+            currentUser.userId
+          )
+        ) {
+
+          socket.emit(
+            "guest-limit-reached",
+            {
+              limit: 10,
+              message:
+                "Your 10 guest matches are finished. Please login with Google."
+            }
+          );
+
+          return;
+        }
+      }
+
+
+      // ================================
+      // FIND WAITING PARTNER
+      // ================================
+
+      let partnerIndex = -1;
+
+
+      for (
+        let index = 0;
+        index < waitingUsers.length;
+        index++
+      ) {
+
+        const waitingUser =
+          waitingUsers[index];
+
+
+        if (
+          !waitingUser ||
+          waitingUser.socketId === socket.id
+        ) {
+          continue;
+        }
+
+
+        const partnerSocket =
+          getSocketById(
+            waitingUser.socketId
+          );
+
+
+        if (!partnerSocket) {
+          continue;
+        }
+
+
+        const partnerData =
+          socketUsers.get(
+            waitingUser.socketId
+          );
+
+
+        if (!partnerData) {
+          continue;
+        }
+
+
+        if (
+          !canUserAccess(
+            partnerData.userId
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          partnerData.isGuest &&
+          !canGuestStartMatch(
+            partnerData.userId
+          )
+        ) {
+          continue;
+        }
+
+
+        partnerIndex = index;
+
+        break;
+      }
+
+
+      // ================================
+      // NO PARTNER
+      // ================================
+
+      if (partnerIndex === -1) {
+
+        waitingUsers.push({
+          socketId: socket.id,
+          userId: currentUser.userId,
+          isGuest: currentUser.isGuest,
+          joinedAt: Date.now()
+        });
+
+
+        socket.emit(
+          "waiting-for-user",
+          {
+            message:
+              "Waiting for someone new..."
+          }
+        );
+
+        return;
+      }
+
+
+      // ================================
+      // CREATE MATCH
+      // ================================
+
+      const partner =
+        waitingUsers.splice(
+          partnerIndex,
+          1
+        )[0];
+
+
+      const partnerData =
+        socketUsers.get(
+          partner.socketId
+        );
+
+
+      const matchId =
+        `match-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 10)}`;
+
+
+      const match = {
+
+        matchId,
+
+        userA:
+          socket.id,
+
+        userB:
+          partner.socketId,
+
+        userAId:
+          currentUser.userId,
+
+        userBId:
+          partnerData.userId,
+
+        startedAt:
+          new Date(),
+
+        connectedAt:
+          null,
+
+        status:
+          "matched"
+      };
+
+
+      activeMatches.set(
+        matchId,
+        match
+      );
+
+
+      // Count a guest match on server.
+      // This is the real guest limit tracker.
+
+      if (currentUser.isGuest) {
+        recordGuestMatch(
+          currentUser.userId
+        );
+      }
+
+
+      if (partnerData.isGuest) {
+        recordGuestMatch(
+          partnerData.userId
+        );
+      }
+
+
+      const socketA =
+        getSocketById(
+          match.userA
+        );
+
+      const socketB =
+        getSocketById(
+          match.userB
+        );
+
+
+      if (!socketA || !socketB) {
+
+        activeMatches.delete(
+          matchId
+        );
+
+        return;
+      }
+
+
+      socketA.emit(
+        "match-found",
+        {
+          matchId,
+          partnerId:
+            match.userBId,
+          initiator: true
+        }
+      );
+
+
+      socketB.emit(
+        "match-found",
+        {
+          matchId,
+          partnerId:
+            match.userAId,
+          initiator: false
+        }
+      );
+    }
   );
-  console.log("----------------------------------------");
+
+
+  // ================================
+  // WEBRTC CONNECTED
+  // ================================
+
+  socket.on(
+    "webrtc-connected",
+    () => {
+
+      const match =
+        getActiveMatch(
+          socket.id
+        );
+
+      if (!match) {
+        return;
+      }
+
+
+      if (!match.connectedAt) {
+
+        match.connectedAt =
+          new Date();
+
+        match.status =
+          "connected";
+      }
+    }
+  );
+
+
+  // ================================
+  // WEBRTC OFFER
+  // ================================
+
+  socket.on(
+    "webrtc-offer",
+    (data = {}) => {
+
+      const {
+        matchId,
+        offer
+      } = data;
+
+
+      if (!matchId || !offer) {
+        return;
+      }
+
+
+      const match =
+        activeMatches.get(
+          matchId
+        );
+
+
+      if (
+        !match ||
+        !isValidPartner(
+          socket.id,
+          getPartnerSocketId(
+            match,
+            socket.id
+          )
+        )
+      ) {
+        return;
+      }
+
+
+      sendToPartner(
+        socket,
+        "webrtc-offer",
+        {
+          matchId,
+          offer
+        }
+      );
+    }
+  );
+
+
+  // ================================
+  // WEBRTC ANSWER
+  // ================================
+
+  socket.on(
+    "webrtc-answer",
+    (data = {}) => {
+
+      const {
+        matchId,
+        answer
+      } = data;
+
+
+      if (!matchId || !answer) {
+        return;
+      }
+
+
+      const match =
+        activeMatches.get(
+          matchId
+        );
+
+
+      if (!match) {
+        return;
+      }
+
+
+      if (
+        !isValidPartner(
+          socket.id,
+          getPartnerSocketId(
+            match,
+            socket.id
+          )
+        )
+      ) {
+        return;
+      }
+
+
+      sendToPartner(
+        socket,
+        "webrtc-answer",
+        {
+          matchId,
+          answer
+        }
+      );
+    }
+  );
+
+
+  // ================================
+  // ICE CANDIDATE
+  // ================================
+
+  socket.on(
+    "webrtc-ice-candidate",
+    (data = {}) => {
+
+      const {
+        matchId,
+        candidate
+      } = data;
+
+
+      if (
+        !matchId ||
+        !candidate
+      ) {
+        return;
+      }
+
+
+      const match =
+        activeMatches.get(
+          matchId
+        );
+
+
+      if (!match) {
+        return;
+      }
+
+
+      if (
+        !isValidPartner(
+          socket.id,
+          getPartnerSocketId(
+            match,
+            socket.id
+          )
+        )
+      ) {
+        return;
+      }
+
+
+      sendToPartner(
+        socket,
+        "webrtc-ice-candidate",
+        {
+          matchId,
+          candidate
+        }
+      );
+    }
+  );
+
+
+  // ================================
+  // NEXT USER
+  // ================================
+
+  socket.on(
+    "next-user",
+    () => {
+
+      endMatchForSocket(
+        socket.id,
+        "next-user"
+      );
+
+      socket.emit(
+        "ready-for-next-user"
+      );
+    }
+  );
+
+
+  // ================================
+  // END CHAT
+  // ================================
+
+  socket.on(
+    "end-chat",
+    () => {
+
+      endMatchForSocket(
+        socket.id,
+        "user-ended-chat"
+      );
+
+      removeFromWaiting(
+        socket.id
+      );
+    }
+  );
+
+
+  // ================================
+  // DISCONNECT
+  // ================================
+
+  socket.on(
+    "disconnect",
+    () => {
+
+      console.log(
+        `Socket disconnected: ${socket.id}`
+      );
+
+
+      endMatchForSocket(
+        socket.id,
+        "disconnect"
+      );
+
+
+      removeFromWaiting(
+        socket.id
+      );
+
+
+      socketUsers.delete(
+        socket.id
+      );
+    }
+  );
 });
+
+
+// ================================
+// START SERVER
+// ================================
+
+server.listen(
+  PORT,
+  () => {
+
+    console.log(
+      `VizoChat backend running on port ${PORT}`
+    );
+
+    console.log(
+      `Frontend URL: ${FRONTEND_URL}`
+    );
+  }
+);
