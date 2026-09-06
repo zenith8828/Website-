@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,22 +24,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Prepare frontend
+      - name: Prepare site
         run: |
+          rm -rf _site
           mkdir -p _site
-          cp -r frontend/. _site/
+          cp -R frontend/. _site/
+          touch _site/.nojekyll
+          echo "===== SITE FILES ====="
+          find _site -maxdepth 2 -type f | sort
 
-      - name: Upload frontend
+      - name: Verify index
+        run: |
+          test -f _site/index.html
+          echo "index.html FOUND"
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
