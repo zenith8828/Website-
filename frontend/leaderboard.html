@@ -7,7 +7,7 @@
   <title>VizoChat - Top 20</title>
   <meta
     name="description"
-    content="VizoChat Top 20 leaderboard based on valid likes."
+    content="VizoChat Top 20 leaderboard based on valid Likes."
   >
 
   <link rel="stylesheet" href="css/style.css">
@@ -15,6 +15,7 @@
 
 <body>
 
+  <!-- HEADER -->
   <header class="site-header">
     <div class="container header-inner">
 
@@ -33,30 +34,25 @@
   </header>
 
 
+  <!-- MAIN -->
   <main class="leaderboard-page">
 
     <div class="container">
 
-      <section class="leaderboard-header">
+      <section class="leaderboard-card">
 
         <h1>Top 20</h1>
 
-        <p>
-          Users are ranked by their valid Likes.
+        <p class="leaderboard-subtitle">
+          Top VizoChat users based on valid Likes.
         </p>
-
-      </section>
-
-
-      <section class="leaderboard-card">
 
         <div
           id="leaderboardMessage"
-          class="leaderboard-message"
+          class="login-message"
         >
-          Loading leaderboard...
+          Loading Top 20...
         </div>
-
 
         <div
           id="leaderboardList"
@@ -65,30 +61,12 @@
 
       </section>
 
-
-      <div class="leaderboard-actions">
-
-        <a
-          href="chat.html"
-          class="primary-button"
-        >
-          Start Random Chat
-        </a>
-
-        <a
-          href="profile.html"
-          class="secondary-button"
-        >
-          My Profile
-        </a>
-
-      </div>
-
     </div>
 
   </main>
 
 
+  <!-- FOOTER -->
   <footer class="site-footer">
 
     <div class="container">
@@ -115,135 +93,262 @@
   </footer>
 
 
+  <!-- COMMON JS -->
   <script src="js/app.js"></script>
   <script src="js/auth.js"></script>
 
+
+  <!-- LEADERBOARD JS -->
   <script>
     "use strict";
 
     const LEADERBOARD_API =
       window.VizoAuth?.VIZOCHAT_API ||
-      "http://localhost:5000/api";
+      "https://website-r746.onrender.com/api";
+
+
+    const leaderboardList =
+      document.getElementById(
+        "leaderboardList"
+      );
+
+    const leaderboardMessage =
+      document.getElementById(
+        "leaderboardMessage"
+      );
+
+
+    /* =====================================
+       LOAD TOP 20
+    ===================================== */
 
     async function loadLeaderboard() {
-      const message =
-        document.getElementById(
-          "leaderboardMessage"
-        );
-
-      const list =
-        document.getElementById(
-          "leaderboardList"
-        );
 
       try {
+
         const response =
           await fetch(
-            `${LEADERBOARD_API}/leaderboard`
+            `${LEADERBOARD_API}/leaderboard`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type":
+                  "application/json"
+              }
+            }
           );
+
 
         const data =
           await response.json();
 
-        if (!response.ok || !data.success) {
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
           throw new Error(
             data.message ||
             "Unable to load leaderboard."
           );
         }
 
-        list.innerHTML = "";
 
-        if (
-          !Array.isArray(data.users) ||
-          data.users.length === 0
-        ) {
-          message.textContent =
-            "No users have valid Likes yet.";
+        const users =
+          Array.isArray(data.leaderboard)
+            ? data.leaderboard
+            : Array.isArray(data.users)
+              ? data.users
+              : [];
 
-          return;
+
+        renderLeaderboard(users);
+
+
+      } catch (error) {
+
+        console.error(
+          "Leaderboard error:",
+          error
+        );
+
+
+        if (leaderboardMessage) {
+          leaderboardMessage.textContent =
+            error.message ||
+            "Unable to load Top 20.";
         }
 
-        message.textContent =
-          `Top ${data.users.length} users`;
+      }
 
-        data.users.forEach((user) => {
+    }
+
+
+    /* =====================================
+       RENDER TOP 20
+    ===================================== */
+
+    function renderLeaderboard(users) {
+
+      if (!leaderboardList) {
+        return;
+      }
+
+
+      leaderboardList.innerHTML = "";
+
+
+      if (!users.length) {
+
+        if (leaderboardMessage) {
+          leaderboardMessage.textContent =
+            "No users on the leaderboard yet.";
+        }
+
+        return;
+      }
+
+
+      if (leaderboardMessage) {
+        leaderboardMessage.textContent = "";
+      }
+
+
+      const topUsers =
+        users.slice(0, 20);
+
+
+      topUsers.forEach(
+        (user, index) => {
+
           const item =
-            document.createElement("div");
+            document.createElement(
+              "div"
+            );
 
           item.className =
             "leaderboard-item";
 
-          const photo =
-            document.createElement("img");
 
-          photo.className =
-            "leaderboard-photo";
-
-          photo.alt =
-            `${user.name || "User"} profile photo`;
-
-          if (user.photo) {
-            photo.src = user.photo;
-          } else {
-            photo.style.display = "none";
-          }
-
+          /* Rank */
           const rank =
-            document.createElement("span");
+            document.createElement(
+              "div"
+            );
 
           rank.className =
             "leaderboard-rank";
 
           rank.textContent =
-            `#${user.rank}`;
+            `#${index + 1}`;
+
+
+          /* Photo */
+          const photo =
+            document.createElement(
+              "img"
+            );
+
+          photo.className =
+            "leaderboard-photo";
+
+          photo.alt =
+            "Profile photo";
+
+
+          if (user.photo) {
+
+            photo.src =
+              user.photo;
+
+          } else {
+
+            photo.style.display =
+              "none";
+          }
+
+
+          /* User information */
+          const info =
+            document.createElement(
+              "div"
+            );
+
+          info.className =
+            "leaderboard-user";
+
 
           const name =
-            document.createElement("span");
-
-          name.className =
-            "leaderboard-name";
+            document.createElement(
+              "strong"
+            );
 
           name.textContent =
-            user.name || "VizoChat User";
+            user.name ||
+            "VizoChat User";
+
 
           const likes =
-            document.createElement("span");
-
-          likes.className =
-            "leaderboard-likes";
+            document.createElement(
+              "span"
+            );
 
           likes.textContent =
             `${Number(
               user.validLikes || 0
             )} Valid Likes`;
 
+
+          info.appendChild(name);
+          info.appendChild(likes);
+
+
+          /* Profile link */
+          const profileLink =
+            document.createElement(
+              "a"
+            );
+
+          profileLink.href =
+            "profile.html";
+
+          profileLink.className =
+            "leaderboard-profile-link";
+
+          profileLink.textContent =
+            "Profile";
+
+
+          /* Add elements */
           item.appendChild(rank);
           item.appendChild(photo);
-          item.appendChild(name);
-          item.appendChild(likes);
+          item.appendChild(info);
+          item.appendChild(profileLink);
 
-          list.appendChild(item);
-        });
 
-      } catch (error) {
-        console.error(
-          "Leaderboard error:",
-          error
-        );
+          leaderboardList.appendChild(
+            item
+          );
 
-        message.textContent =
-          error.message ||
-          "Unable to load leaderboard.";
+        }
+      );
 
-        list.innerHTML = "";
-      }
     }
+
+
+    /* =====================================
+       PAGE START
+    ===================================== */
 
     document.addEventListener(
       "DOMContentLoaded",
-      loadLeaderboard
+      () => {
+
+        loadLeaderboard();
+
+      }
     );
+
   </script>
 
 </body>
