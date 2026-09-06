@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Help - VizoChat</title>
+  <meta
+    name="description"
+    content="Get help and support for VizoChat."
+  >
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container nav-container">
+
+      <a href="index.html" class="logo">
+        VizoChat
+      </a>
+
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="chat.html">Random Chat</a>
+        <a href="leaderboard.html">Top 20</a>
+        <a href="profile.html">Profile</a>
+      </nav>
+
+    </div>
+  </header>
+
+
+  <!-- Hero -->
+  <main>
+
+    <section class="hero">
+      <div class="container">
+
+        <span class="badge">💬 Support</span>
+
+        <h1>How can we help?</h1>
+
+        <p>
+          Need help with VizoChat? Check the information below
+          or contact our support team.
+        </p>
+
+      </div>
+    </section>
+
+
+    <!-- Help Section -->
+    <section class="section">
+      <div class="container">
+
+        <div class="features-grid">
+
+          <div class="feature-card">
+            <div class="feature-icon">🎥</div>
+
+            <h3>Random Chat</h3>
+
+            <p>
+              Click Start Random Chat to find another available
+              user for a 1-to-1 video chat.
+            </p>
+          </div>
+
+
+          <div class="feature-card">
+            <div class="feature-icon">❤️</div>
+
+            <h3>Valid Likes</h3>
+
+            <p>
+              Only one Like can be given during a chat.
+              The receiver must stay connected for 10 seconds
+              after the Like for it to become valid.
+            </p>
+          </div>
+
+
+          <div class="feature-card">
+            <div class="feature-icon">🏆</div>
+
+            <h3>Top 20</h3>
+
+            <p>
+              The Top 20 leaderboard is based on the total
+              number of valid Likes received by users.
+            </p>
+          </div>
+
+
+          <div class="feature-card">
+            <div class="feature-icon">🚨</div>
+
+            <h3>Report</h3>
+
+            <p>
+              If another user breaks the rules, you can report
+              them during the chat.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- Rules -->
+    <section class="section">
+      <div class="container">
+
+        <div class="rules-box">
+
+          <h2>Important Rules</h2>
+
+          <ul>
+            <li>Guests can use up to 10 matches.</li>
+            <li>After 10 guest matches, Google login is required.</li>
+            <li>Only one Like is allowed per chat session.</li>
+            <li>A Like becomes valid only after the receiver stays connected for 10 seconds.</li>
+            <li>Each valid Like gives the receiver ₹2.</li>
+            <li>Five reports within one hour can result in an automatic 23-day ban.</li>
+          </ul>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- Contact Support -->
+    <section class="section">
+      <div class="container">
+
+        <div class="cta-box">
+
+          <h2>Need more help?</h2>
+
+          <p>
+            Contact VizoChat support on Telegram.
+          </p>
+
+          <a
+            href="https://t.me/zenithvizo"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-primary"
+          >
+            Contact Support
+          </a>
+
+          <p class="support-username">
+            Telegram: @zenithvizo
+          </p>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+
+      <p>
+        © <span id="year"></span> VizoChat. All rights reserved.
+      </p>
+
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="leaderboard.html">Top 20</a>
+      </div>
+
+    </div>
+  </footer>
+
+
+  <script>
+    document.getElementById("year").textContent =
+      new Date().getFullYear();
+  </script>
+
+</body>
+</html>
