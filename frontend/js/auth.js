@@ -1,281 +1,282 @@
 "use strict";
 
-/*
- * VizoChat Authentication
- * Version: 1.0
- *
- * NOTE:
- * Real Google authentication backend se connect hone ke baad
- * add ki jayegi. Abhi ye frontend authentication state
- * manage karne ka base hai.
- */
+const VIZOCHAT_API =
+  window.VIZOCHAT_API || "http://localhost:5000/api";
 
-const VizoChatAuth = {
+const GUEST_MATCH_LIMIT = 10;
 
-  STORAGE_KEY: "vizochat_auth",
-  GUEST_MATCH_KEY: "vizochat_guest_matches",
-  MAX_GUEST_MATCHES: 10,
+function getAuthToken() {
+  return localStorage.getItem("vizochat_auth_token") || null;
+}
 
-  /**
-   * Get current authentication state.
-   */
-  getAuth() {
-    try {
-      const data = localStorage.getItem(this.STORAGE_KEY);
+function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem("vizochat_auth_token", token);
+  }
+}
 
-      if (!data) {
-        return {
-          loggedIn: false,
-          user: null
-        };
-      }
+function removeAuthToken() {
+  localStorage.removeItem("vizochat_auth_token");
+}
 
-      const parsed = JSON.parse(data);
+function getCurrentUser() {
+  try {
+    const user = localStorage.getItem("vizochat_user");
+    return user ? JSON.parse(user) : null;
+  } catch (error) {
+    console.error("Unable to read user:", error);
+    return null;
+  }
+}
 
-      return {
-        loggedIn: parsed.loggedIn === true,
-        user: parsed.user || null
-      };
+function setCurrentUser(user) {
+  if (user) {
+    localStorage.setItem("vizochat_user", JSON.stringify(user));
+  }
+}
 
-    } catch (error) {
-      console.error(
-        "VizoChat Auth: Unable to read authentication state.",
-        error
-      );
+function removeCurrentUser() {
+  localStorage.removeItem("vizochat_user");
+}
 
-      return {
-        loggedIn: false,
-        user: null
-      };
-    }
-  },
+function isLoggedIn() {
+  return Boolean(getAuthToken() && getCurrentUser());
+}
 
+function isGuest() {
+  return !isLoggedIn();
+}
 
-  /**
-   * Check whether user is logged in.
-   */
-  isLoggedIn() {
-    return this.getAuth().loggedIn;
-  },
+function getGuestMatchCount() {
+  const count = Number(
+    localStorage.getItem("vizochat_guest_matches") || 0
+  );
 
+  return Number.isFinite(count) && count >= 0 ? count : 0;
+}
 
-  /**
-   * Get logged-in user.
-   */
-  getUser() {
-    return this.getAuth().user;
-  },
+function setGuestMatchCount(count) {
+  const safeCount = Math.max(0, Number(count) || 0);
 
+  localStorage.setItem(
+    "vizochat_guest_matches",
+    String(safeCount)
+  );
 
-  /**
-   * Save user authentication state.
-   *
-   * This is only a frontend placeholder.
-   * Real authentication will be verified by backend.
-   */
-  setUser(user) {
+  return safeCount;
+}
 
-    if (!user || typeof user !== "object") {
-      return false;
-    }
+function incrementGuestMatchCount() {
+  const currentCount = getGuestMatchCount();
 
-    const authData = {
-      loggedIn: true,
-      user: {
-        id: user.id || null,
-        name: user.name || "VizoChat User",
-        email: user.email || "",
-        photo: user.photo || ""
-      }
+  if (currentCount >= GUEST_MATCH_LIMIT) {
+    return currentCount;
+  }
+
+  return setGuestMatchCount(currentCount + 1);
+}
+
+function canGuestStartMatch() {
+  return getGuestMatchCount() < GUEST_MATCH_LIMIT;
+}
+
+function getGuestMatchesRemaining() {
+  return Math.max(
+    0,
+    GUEST_MATCH_LIMIT - getGuestMatchCount()
+  );
+}
+
+function getGuestUserId() {
+  let guestId = localStorage.getItem("vizochat_guest_id");
+
+  if (!guestId) {
+    guestId =
+      "guest-" +
+      Date.now() +
+      "-" +
+      Math.random().toString(36).substring(2, 10);
+
+    localStorage.setItem(
+      "vizochat_guest_id",
+      guestId
+    );
+  }
+
+  return guestId;
+}
+
+function getUserId() {
+  const user = getCurrentUser();
+
+  if (user && user.id) {
+    return user.id;
+  }
+
+  return getGuestUserId();
+}
+
+function getUserType() {
+  return isLoggedIn() ? "user" : "guest";
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+
+  if (!token) {
+    return {
+      "Content-Type": "application/json"
     };
+  }
 
-    try {
-      localStorage.setItem(
-        this.STORAGE_KEY,
-        JSON.stringify(authData)
-      );
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`
+  };
+}
 
-      return true;
+async function checkUserAccess() {
+  if (isGuest()) {
+    return {
+      allowed: canGuestStartMatch(),
+      guest: true,
+      matchesRemaining: getGuestMatchesRemaining()
+    };
+  }
 
-    } catch (error) {
-      console.error(
-        "VizoChat Auth: Unable to save user.",
-        error
-      );
+  const userId = getUserId();
 
-      return false;
-    }
-  },
+  try {
+    const response = await fetch(
+      `${VIZOCHAT_API}/users/${encodeURIComponent(userId)}/access`
+    );
 
+    const data = await response.json();
 
-  /**
-   * Logout current user.
-   */
-  logout() {
+    return {
+      ...data,
+      guest: false
+    };
+  } catch (error) {
+    console.error("Access check failed:", error);
 
-    try {
-      localStorage.removeItem(this.STORAGE_KEY);
+    return {
+      success: false,
+      allowed: false,
+      guest: false,
+      reason: "Unable to connect to VizoChat server."
+    };
+  }
+}
 
-      return true;
+function startGoogleLogin() {
+  window.location.href =
+    `${VIZOCHAT_API}/auth/google`;
+}
 
-    } catch (error) {
-      console.error(
-        "VizoChat Auth: Logout failed.",
-        error
-      );
+async function logoutUser() {
+  const token = getAuthToken();
 
-      return false;
-    }
-  },
-
-
-  /**
-   * Get number of guest matches.
-   */
-  getGuestMatches() {
-
-    try {
-      const value =
-        localStorage.getItem(this.GUEST_MATCH_KEY);
-
-      const matches = Number(value);
-
-      if (!Number.isFinite(matches) || matches < 0) {
-        return 0;
-      }
-
-      return Math.min(
-        Math.floor(matches),
-        this.MAX_GUEST_MATCHES
-      );
-
-    } catch (error) {
-      console.error(
-        "VizoChat Auth: Unable to read guest matches.",
-        error
-      );
-
-      return 0;
-    }
-  },
-
-
-  /**
-   * Increase guest match count.
-   */
-  addGuestMatch() {
-
-    if (this.isLoggedIn()) {
-      return this.getGuestMatches();
-    }
-
-    const current = this.getGuestMatches();
-
-    if (current >= this.MAX_GUEST_MATCHES) {
-      return this.MAX_GUEST_MATCHES;
-    }
-
-    const next = current + 1;
-
-    try {
-      localStorage.setItem(
-        this.GUEST_MATCH_KEY,
-        String(next)
-      );
-    } catch (error) {
-      console.error(
-        "VizoChat Auth: Unable to save guest match count.",
-        error
+  try {
+    if (token) {
+      await fetch(
+        `${VIZOCHAT_API}/auth/logout`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
       );
     }
+  } catch (error) {
+    console.error("Logout request failed:", error);
+  }
 
-    return next;
-  },
+  removeAuthToken();
+  removeCurrentUser();
 
+  window.location.href = "index.html";
+}
 
-  /**
-   * Check whether guest can start another match.
-   */
-  canStartGuestMatch() {
-
-    if (this.isLoggedIn()) {
-      return true;
-    }
-
-    return this.getGuestMatches() <
-      this.MAX_GUEST_MATCHES;
-  },
-
-
-  /**
-   * Reset guest matches.
-   *
-   * This is mainly useful for development/testing.
-   */
-  resetGuestMatches() {
-
-    try {
-      localStorage.removeItem(
-        this.GUEST_MATCH_KEY
-      );
-
-      return true;
-
-    } catch (error) {
-      console.error(
-        "VizoChat Auth: Unable to reset guest matches.",
-        error
-      );
-
-      return false;
-    }
-  },
-
-
-  /**
-   * Require login.
-   *
-   * Returns true if user can continue.
-   * Otherwise redirects to login page.
-   */
-  requireLogin() {
-
-    if (this.isLoggedIn()) {
-      return true;
-    }
-
+function requireLogin() {
+  if (!isLoggedIn()) {
     window.location.href = "login.html";
-
-    return false;
-  },
-
-
-  /**
-   * Handle starting a random chat.
-   *
-   * Logged-in users can continue.
-   * Guests can use up to 10 matches.
-   */
-  startRandomChat() {
-
-    if (this.isLoggedIn()) {
-      window.location.href = "chat.html";
-      return true;
-    }
-
-    if (this.canStartGuestMatch()) {
-      window.location.href = "chat.html";
-      return true;
-    }
-
-    window.location.href = "login.html";
-
     return false;
   }
+
+  return true;
+}
+
+function getLoginStatus() {
+  return {
+    loggedIn: isLoggedIn(),
+    guest: isGuest(),
+    user: getCurrentUser(),
+    userId: getUserId(),
+    guestMatches: getGuestMatchCount(),
+    guestMatchesRemaining: getGuestMatchesRemaining()
+  };
+}
+
+// Handle Google login callback data if it is returned in URL
+function handleLoginCallback() {
+  const params = new URLSearchParams(
+    window.location.search
+  );
+
+  const token = params.get("token");
+  const userData = params.get("user");
+
+  if (!token) {
+    return false;
+  }
+
+  setAuthToken(token);
+
+  if (userData) {
+    try {
+      const user = JSON.parse(
+        decodeURIComponent(userData)
+      );
+
+      setCurrentUser(user);
+    } catch (error) {
+      console.error(
+        "Unable to read login user data:",
+        error
+      );
+    }
+  }
+
+  return true;
+}
+
+// Make functions available to other frontend files
+window.VizoAuth = {
+  VIZOCHAT_API,
+  GUEST_MATCH_LIMIT,
+  getAuthToken,
+  setAuthToken,
+  removeAuthToken,
+  getCurrentUser,
+  setCurrentUser,
+  removeCurrentUser,
+  isLoggedIn,
+  isGuest,
+  getGuestMatchCount,
+  setGuestMatchCount,
+  incrementGuestMatchCount,
+  canGuestStartMatch,
+  getGuestMatchesRemaining,
+  getGuestUserId,
+  getUserId,
+  getUserType,
+  getAuthHeaders,
+  checkUserAccess,
+  startGoogleLogin,
+  logoutUser,
+  requireLogin,
+  getLoginStatus,
+  handleLoginCallback
 };
-
-
-/*
- * Make authentication object available globally.
- */
-window.VizoChatAuth = VizoChatAuth;
