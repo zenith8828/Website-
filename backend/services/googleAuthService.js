@@ -1,119 +1,126 @@
 "use strict";
 
 const crypto = require("crypto");
+
 const {
-  createUser
+  createUser,
+  getUserByGoogleId,
+  getUserByEmail
 } = require("../models/user");
 
-function generateUserId() {
-  return `user_${Date.now()}_${crypto
-    .randomBytes(6)
-    .toString("hex")}`;
-}
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 
-async function exchangeGoogleCode(code) {
+async function exchangeCodeForTokens(code) {
+  if (!code) {
+    throw new Error("Google authorization code is required.");
+  }
+
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const callbackUrl = process.env.GOOGLE_CALLBACK_URL;
+  const redirectUri = process.env.GOOGLE_CALLBACK_URL;
 
-  if (!clientId || !clientSecret || !callbackUrl) {
-    throw new Error(
-      "Google authentication is not configured."
-    );
+  if (!clientId || !clientSecret || !redirectUri) {
+    throw new Error("Google OAuth is not configured.");
   }
 
-  if (!code) {
-    throw new Error(
-      "Google authorization code is required."
-    );
-  }
+  const response = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code"
+    })
+  });
 
-  const tokenResponse = await fetch(
-    "https://oauth2.googleapis.com/token",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: callbackUrl,
-        grant_type: "authorization_code"
-      })
-    }
-  );
-
-  if (!tokenResponse.ok) {
-    throw new Error(
-      "Unable to exchange Google authorization code."
-    );
-  }
-
-  const tokenData = await tokenResponse.json();
-
-  if (!tokenData.access_token) {
-    throw new Error(
-      "Google access token was not returned."
-    );
-  }
-
-  return tokenData;
-}
-
-async function getGoogleUser(accessToken) {
-  const response = await fetch(
-    "https://www.googleapis.com/oauth2/v3/userinfo",
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    }
-  );
+  const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
-      "Unable to get Google user information."
+      data.error_description ||
+      data.error ||
+      "Failed to exchange Google authorization code."
     );
   }
 
-  const googleUser = await response.json();
+  return data;
+}
 
-  if (!googleUser.sub || !googleUser.email) {
-    throw new Error(
-      "Google account information is incomplete."
-    );
+async function getGoogleUserInfo(accessToken) {
+  if (!accessToken) {
+    throw new Error("Google access token is required.");
   }
 
-  return googleUser;
+  const response = await fetch(GOOGLE_USERINFO_URL, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error("Failed to get Google user information.");
+  }
+
+  if (!data.sub || !data.email) {
+    throw new Error("Google account information is incomplete.");
+  }
+
+  return data;
 }
 
 async function loginWithGoogle(code) {
-  const tokenData = await exchangeGoogleCode(code);
+  const tokens = await exchangeCodeForTokens(code);
 
-  const googleUser = await getGoogleUser(
-    tokenData.access_token
-  );
+  const googleUser = await getGoogleUserInfo(tokens.access_token);
 
-  const user = createUser({
-    id: generateUserId(),
+  // First find user by Google ID
+  let user = getUserByGoogleId(googleUser.sub);
+
+  // If Google ID is not found, try email
+  if (!user && googleUser.email) {
+    user = getUserByEmail(googleUser.email);
+  }
+
+  // Existing user
+  if (user) {
+    user.googleId = googleUser.sub;
+    user.name = googleUser.name || user.name;
+    user.email = googleUser.email || user.email;
+    user.photo = googleUser.picture || user.photo;
+    user.updatedAt = new Date();
+
+    return {
+      user,
+      tokens
+    };
+  }
+
+  // New user
+  const userId = crypto.randomUUID();
+
+  user = createUser({
+    id: userId,
     googleId: googleUser.sub,
-    name:
-      googleUser.name ||
-      googleUser.email.split("@")[0],
+    name: googleUser.name || "VizoChat User",
     email: googleUser.email,
-    photo: googleUser.picture || ""
+    photo: googleUser.picture || null
   });
 
   return {
     user,
-    accessToken: tokenData.access_token
+    tokens
   };
 }
 
 module.exports = {
-  exchangeGoogleCode,
-  getGoogleUser,
+  exchangeCodeForTokens,
+  getGoogleUserInfo,
   loginWithGoogle
 };
