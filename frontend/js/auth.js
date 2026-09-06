@@ -1,10 +1,17 @@
 "use strict";
 
+/* ================================
+   VizoChat Production API
+================================ */
 const VIZOCHAT_API =
-  window.VIZOCHAT_API || "http://localhost:5000/api";
+  window.VIZOCHAT_API || "https://website-r746.onrender.com/api";
 
 const GUEST_MATCH_LIMIT = 10;
 
+
+/* ================================
+   AUTH TOKEN
+================================ */
 function getAuthToken() {
   return localStorage.getItem("vizochat_auth_token") || null;
 }
@@ -19,6 +26,10 @@ function removeAuthToken() {
   localStorage.removeItem("vizochat_auth_token");
 }
 
+
+/* ================================
+   CURRENT USER
+================================ */
 function getCurrentUser() {
   try {
     const user = localStorage.getItem("vizochat_user");
@@ -39,6 +50,10 @@ function removeCurrentUser() {
   localStorage.removeItem("vizochat_user");
 }
 
+
+/* ================================
+   LOGIN STATUS
+================================ */
 function isLoggedIn() {
   return Boolean(getAuthToken() && getCurrentUser());
 }
@@ -47,6 +62,10 @@ function isGuest() {
   return !isLoggedIn();
 }
 
+
+/* ================================
+   GUEST MATCH SYSTEM
+================================ */
 function getGuestMatchCount() {
   const count = Number(
     localStorage.getItem("vizochat_guest_matches") || 0
@@ -87,6 +106,10 @@ function getGuestMatchesRemaining() {
   );
 }
 
+
+/* ================================
+   USER ID
+================================ */
 function getGuestUserId() {
   let guestId = localStorage.getItem("vizochat_guest_id");
 
@@ -120,6 +143,10 @@ function getUserType() {
   return isLoggedIn() ? "user" : "guest";
 }
 
+
+/* ================================
+   API HEADERS
+================================ */
 function getAuthHeaders() {
   const token = getAuthToken();
 
@@ -135,6 +162,10 @@ function getAuthHeaders() {
   };
 }
 
+
+/* ================================
+   USER ACCESS CHECK
+================================ */
 async function checkUserAccess() {
   if (isGuest()) {
     return {
@@ -148,7 +179,11 @@ async function checkUserAccess() {
 
   try {
     const response = await fetch(
-      `${VIZOCHAT_API}/users/${encodeURIComponent(userId)}/access`
+      `${VIZOCHAT_API}/users/${encodeURIComponent(userId)}/access`,
+      {
+        method: "GET",
+        headers: getAuthHeaders()
+      }
     );
 
     const data = await response.json();
@@ -169,57 +204,19 @@ async function checkUserAccess() {
   }
 }
 
+
+/* ================================
+   GOOGLE LOGIN
+================================ */
 function startGoogleLogin() {
   window.location.href =
     `${VIZOCHAT_API}/auth/google`;
 }
 
-async function logoutUser() {
-  const token = getAuthToken();
 
-  try {
-    if (token) {
-      await fetch(
-        `${VIZOCHAT_API}/auth/logout`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Logout request failed:", error);
-  }
-
-  removeAuthToken();
-  removeCurrentUser();
-
-  window.location.href = "index.html";
-}
-
-function requireLogin() {
-  if (!isLoggedIn()) {
-    window.location.href = "login.html";
-    return false;
-  }
-
-  return true;
-}
-
-function getLoginStatus() {
-  return {
-    loggedIn: isLoggedIn(),
-    guest: isGuest(),
-    user: getCurrentUser(),
-    userId: getUserId(),
-    guestMatches: getGuestMatchCount(),
-    guestMatchesRemaining: getGuestMatchesRemaining()
-  };
-}
-
-// Handle Google login callback data if it is returned in URL
+/* ================================
+   GOOGLE LOGIN CALLBACK
+================================ */
 function handleLoginCallback() {
   const params = new URLSearchParams(
     window.location.search
@@ -249,34 +246,130 @@ function handleLoginCallback() {
     }
   }
 
+  /* Remove token/user from browser URL */
+  const cleanUrl =
+    window.location.origin +
+    window.location.pathname;
+
+  window.history.replaceState(
+    {},
+    document.title,
+    cleanUrl
+  );
+
   return true;
 }
 
-// Make functions available to other frontend files
+
+/* ================================
+   LOGOUT
+================================ */
+async function logoutUser() {
+  const token = getAuthToken();
+
+  try {
+    if (token) {
+      await fetch(
+        `${VIZOCHAT_API}/auth/logout`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Logout request failed:",
+      error
+    );
+  }
+
+  removeAuthToken();
+  removeCurrentUser();
+
+  window.location.href = "index.html";
+}
+
+
+/* ================================
+   LOGIN REQUIRED
+================================ */
+function requireLogin() {
+  if (!isLoggedIn()) {
+    window.location.href = "login.html";
+    return false;
+  }
+
+  return true;
+}
+
+
+/* ================================
+   LOGIN STATUS
+================================ */
+function getLoginStatus() {
+  return {
+    loggedIn: isLoggedIn(),
+    guest: isGuest(),
+    user: getCurrentUser(),
+    userId: getUserId(),
+    guestMatches: getGuestMatchCount(),
+    guestMatchesRemaining:
+      getGuestMatchesRemaining()
+  };
+}
+
+
+/* ================================
+   AUTO PROCESS GOOGLE CALLBACK
+================================ */
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+    handleLoginCallback();
+  }
+);
+
+
+/* ================================
+   GLOBAL VIZO AUTH
+================================ */
 window.VizoAuth = {
   VIZOCHAT_API,
+
   GUEST_MATCH_LIMIT,
+
   getAuthToken,
   setAuthToken,
   removeAuthToken,
+
   getCurrentUser,
   setCurrentUser,
   removeCurrentUser,
+
   isLoggedIn,
   isGuest,
+
   getGuestMatchCount,
   setGuestMatchCount,
   incrementGuestMatchCount,
   canGuestStartMatch,
   getGuestMatchesRemaining,
+
   getGuestUserId,
   getUserId,
   getUserType,
+
   getAuthHeaders,
   checkUserAccess,
+
   startGoogleLogin,
+  handleLoginCallback,
+
   logoutUser,
   requireLogin,
-  getLoginStatus,
-  handleLoginCallback
+
+  getLoginStatus
 };
