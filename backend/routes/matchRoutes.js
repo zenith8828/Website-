@@ -3,39 +3,21 @@
 const express = require("express");
 
 const {
-  createMatch,
-  connectUser,
-  endMatch,
-  isUserInMatch,
-  getOtherUserId
-} = require("../models/match");
+  createNewMatch,
+  connectUsers,
+  endUsersMatch,
+  checkUserInMatch,
+  getMatchedUser
+} = require("../services/matchService");
 
 const router = express.Router();
 
 // Create a new match
 router.post("/", (req, res) => {
   try {
-    const { matchId, userAId, userBId } = req.body;
+    const { user1Id, user2Id } = req.body;
 
-    if (!matchId || !userAId || !userBId) {
-      return res.status(400).json({
-        success: false,
-        message: "matchId, userAId and userBId are required."
-      });
-    }
-
-    if (userAId === userBId) {
-      return res.status(400).json({
-        success: false,
-        message: "A user cannot be matched with themselves."
-      });
-    }
-
-    const match = createMatch({
-      id: matchId,
-      userAId,
-      userBId
-    });
+    const match = createNewMatch(user1Id, user2Id);
 
     return res.status(201).json({
       success: true,
@@ -51,24 +33,13 @@ router.post("/", (req, res) => {
   }
 });
 
-// Connect a user to a match
+// Connect users to a match
 router.post("/:matchId/connect", (req, res) => {
   try {
-    const { matchId } = req.params;
-    const { userId } = req.body;
-
-    if (!matchId || !userId) {
-      return res.status(400).json({
-        success: false,
-        message: "matchId and userId are required."
-      });
-    }
-
-    const match = connectUser(matchId, userId);
+    const match = connectUsers(req.params.matchId);
 
     return res.json({
       success: true,
-      message: "User connected to match.",
       match
     });
   } catch (error) {
@@ -76,7 +47,7 @@ router.post("/:matchId/connect", (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message || "Unable to connect user."
+      message: error.message || "Unable to connect match."
     });
   }
 });
@@ -84,20 +55,10 @@ router.post("/:matchId/connect", (req, res) => {
 // End a match
 router.post("/:matchId/end", (req, res) => {
   try {
-    const { matchId } = req.params;
-
-    if (!matchId) {
-      return res.status(400).json({
-        success: false,
-        message: "Match ID is required."
-      });
-    }
-
-    const match = endMatch(matchId);
+    const match = endUsersMatch(req.params.matchId);
 
     return res.json({
       success: true,
-      message: "Match ended.",
       match
     });
   } catch (error) {
@@ -110,12 +71,12 @@ router.post("/:matchId/end", (req, res) => {
   }
 });
 
-// Check whether user is inside a match
+// Check whether user is in a match
 router.get("/:matchId/user/:userId", (req, res) => {
   try {
     const { matchId, userId } = req.params;
 
-    const inMatch = isUserInMatch(matchId, userId);
+    const inMatch = checkUserInMatch(matchId, userId);
 
     return res.json({
       success: true,
@@ -124,21 +85,21 @@ router.get("/:matchId/user/:userId", (req, res) => {
       inMatch
     });
   } catch (error) {
-    console.error("Match status error:", error);
+    console.error("Match check error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to check match status."
+      message: "Unable to check match."
     });
   }
 });
 
-// Get the other participant
+// Get the other user in a match
 router.get("/:matchId/other/:userId", (req, res) => {
   try {
     const { matchId, userId } = req.params;
 
-    const otherUserId = getOtherUserId(matchId, userId);
+    const otherUserId = getMatchedUser(matchId, userId);
 
     if (!otherUserId) {
       return res.status(404).json({
@@ -156,9 +117,9 @@ router.get("/:matchId/other/:userId", (req, res) => {
   } catch (error) {
     console.error("Other user error:", error);
 
-    return res.status(400).json({
+    return res.status(500).json({
       success: false,
-      message: error.message || "Unable to find other user."
+      message: "Unable to find other user."
     });
   }
 });
