@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Top 20 - VizoChat</title>
+  <meta
+    name="description"
+    content="VizoChat Top 20 leaderboard based on valid Likes."
+  >
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container nav-container">
+
+      <a href="index.html" class="logo">
+        VizoChat
+      </a>
+
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="chat.html">Random Chat</a>
+        <a href="profile.html">Profile</a>
+        <a href="help.html">Help</a>
+      </nav>
+
+    </div>
+  </header>
+
+
+  <!-- Main -->
+  <main>
+
+    <section class="hero leaderboard-hero">
+      <div class="container">
+
+        <span class="badge">🏆 VizoChat</span>
+
+        <h1>Top 20</h1>
+
+        <p>
+          The users with the highest number of valid Likes.
+        </p>
+
+      </div>
+    </section>
+
+
+    <!-- Leaderboard -->
+    <section class="section">
+      <div class="container">
+
+        <div class="leaderboard-card">
+
+          <div class="leaderboard-header">
+            <div>Rank</div>
+            <div>User</div>
+            <div>Valid Likes</div>
+          </div>
+
+
+          <div id="leaderboardList">
+
+            <!-- Demo users -->
+            <div class="leaderboard-row">
+              <div class="rank">#1</div>
+
+              <div class="leader-user">
+                <div class="leader-avatar">A</div>
+                <span>Alex</span>
+              </div>
+
+              <div class="likes">1250 ❤️</div>
+            </div>
+
+
+            <div class="leaderboard-row">
+              <div class="rank">#2</div>
+
+              <div class="leader-user">
+                <div class="leader-avatar">R</div>
+                <span>Rahul</span>
+              </div>
+
+              <div class="likes">1120 ❤️</div>
+            </div>
+
+
+            <div class="leaderboard-row">
+              <div class="rank">#3</div>
+
+              <div class="leader-user">
+                <div class="leader-avatar">S</div>
+                <span>Sam</span>
+              </div>
+
+              <div class="likes">980 ❤️</div>
+            </div>
+
+
+            <div class="leaderboard-row">
+              <div class="rank">#4</div>
+
+              <div class="leader-user">
+                <div class="leader-avatar">K</div>
+                <span>Karan</span>
+              </div>
+
+              <div class="likes">875 ❤️</div>
+            </div>
+
+
+            <div class="leaderboard-row">
+              <div class="rank">#5</div>
+
+              <div class="leader-user">
+                <div class="leader-avatar">M</div>
+                <span>Mohit</span>
+              </div>
+
+              <div class="likes">810 ❤️</div>
+            </div>
+
+          </div>
+
+          <p class="leaderboard-note">
+            Only valid Likes are counted in the Top 20 leaderboard.
+          </p>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- CTA -->
+    <section class="section">
+      <div class="container">
+
+        <div class="cta-box">
+
+          <h2>Want to reach the Top 20?</h2>
+
+          <p>
+            Start random chats and receive valid Likes from other users.
+          </p>
+
+          <a href="chat.html" class="btn btn-primary">
+            Start Random Chat
+          </a>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+
+      <p>
+        © <span id="year"></span> VizoChat. All rights reserved.
+      </p>
+
+      <div class="footer-links">
+        <a href="help.html">Help</a>
+        <a href="index.html">Home</a>
+      </div>
+
+    </div>
+  </footer>
+
+
+  <script>
+    document.getElementById("year").textContent =
+      new Date().getFullYear();
+  </script>
+
+</body>
+</html>
