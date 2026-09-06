@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Top 20 - VizoChat</title>
+  <title>VizoChat - Top 20</title>
   <meta
     name="description"
-    content="VizoChat Top 20 leaderboard based on valid Likes."
+    content="VizoChat Top 20 leaderboard based on valid likes."
   >
 
   <link rel="stylesheet" href="css/style.css">
@@ -15,15 +15,14 @@
 
 <body>
 
-  <!-- Header -->
   <header class="site-header">
-    <div class="container nav-container">
+    <div class="container header-inner">
 
       <a href="index.html" class="logo">
         VizoChat
       </a>
 
-      <nav class="nav-links">
+      <nav class="main-nav">
         <a href="index.html">Home</a>
         <a href="chat.html">Random Chat</a>
         <a href="profile.html">Profile</a>
@@ -34,155 +33,217 @@
   </header>
 
 
-  <!-- Main -->
-  <main>
+  <main class="leaderboard-page">
 
-    <section class="hero leaderboard-hero">
-      <div class="container">
+    <div class="container">
 
-        <span class="badge">🏆 VizoChat</span>
+      <section class="leaderboard-header">
 
         <h1>Top 20</h1>
 
         <p>
-          The users with the highest number of valid Likes.
+          Users are ranked by their valid Likes.
         </p>
 
-      </div>
-    </section>
+      </section>
 
 
-    <!-- Leaderboard -->
-    <section class="section">
-      <div class="container">
+      <section class="leaderboard-card">
 
-        <div class="leaderboard-card">
-
-          <div class="leaderboard-header">
-            <div>Rank</div>
-            <div>User</div>
-            <div>Valid Likes</div>
-          </div>
-
-
-          <div id="leaderboardList">
-
-            <!-- Demo users -->
-            <div class="leaderboard-row">
-              <div class="rank">#1</div>
-
-              <div class="leader-user">
-                <div class="leader-avatar">A</div>
-                <span>Alex</span>
-              </div>
-
-              <div class="likes">1250 ❤️</div>
-            </div>
-
-
-            <div class="leaderboard-row">
-              <div class="rank">#2</div>
-
-              <div class="leader-user">
-                <div class="leader-avatar">R</div>
-                <span>Rahul</span>
-              </div>
-
-              <div class="likes">1120 ❤️</div>
-            </div>
-
-
-            <div class="leaderboard-row">
-              <div class="rank">#3</div>
-
-              <div class="leader-user">
-                <div class="leader-avatar">S</div>
-                <span>Sam</span>
-              </div>
-
-              <div class="likes">980 ❤️</div>
-            </div>
-
-
-            <div class="leaderboard-row">
-              <div class="rank">#4</div>
-
-              <div class="leader-user">
-                <div class="leader-avatar">K</div>
-                <span>Karan</span>
-              </div>
-
-              <div class="likes">875 ❤️</div>
-            </div>
-
-
-            <div class="leaderboard-row">
-              <div class="rank">#5</div>
-
-              <div class="leader-user">
-                <div class="leader-avatar">M</div>
-                <span>Mohit</span>
-              </div>
-
-              <div class="likes">810 ❤️</div>
-            </div>
-
-          </div>
-
-          <p class="leaderboard-note">
-            Only valid Likes are counted in the Top 20 leaderboard.
-          </p>
-
+        <div
+          id="leaderboardMessage"
+          class="leaderboard-message"
+        >
+          Loading leaderboard...
         </div>
 
+
+        <div
+          id="leaderboardList"
+          class="leaderboard-list"
+        ></div>
+
+      </section>
+
+
+      <div class="leaderboard-actions">
+
+        <a
+          href="chat.html"
+          class="primary-button"
+        >
+          Start Random Chat
+        </a>
+
+        <a
+          href="profile.html"
+          class="secondary-button"
+        >
+          My Profile
+        </a>
+
       </div>
-    </section>
 
-
-    <!-- CTA -->
-    <section class="section">
-      <div class="container">
-
-        <div class="cta-box">
-
-          <h2>Want to reach the Top 20?</h2>
-
-          <p>
-            Start random chats and receive valid Likes from other users.
-          </p>
-
-          <a href="chat.html" class="btn btn-primary">
-            Start Random Chat
-          </a>
-
-        </div>
-
-      </div>
-    </section>
+    </div>
 
   </main>
 
 
-  <!-- Footer -->
   <footer class="site-footer">
+
     <div class="container">
 
       <p>
-        © <span id="year"></span> VizoChat. All rights reserved.
+        Need help?
+        <a
+          href="https://t.me/zenithvizo"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Telegram Support @zenithvizo
+        </a>
       </p>
 
-      <div class="footer-links">
-        <a href="help.html">Help</a>
-        <a href="index.html">Home</a>
-      </div>
+      <p>
+        &copy;
+        <span id="currentYear"></span>
+        VizoChat. All rights reserved.
+      </p>
 
     </div>
+
   </footer>
 
 
+  <script src="js/app.js"></script>
+  <script src="js/auth.js"></script>
+
   <script>
-    document.getElementById("year").textContent =
-      new Date().getFullYear();
+    "use strict";
+
+    const LEADERBOARD_API =
+      window.VizoAuth?.VIZOCHAT_API ||
+      "http://localhost:5000/api";
+
+    async function loadLeaderboard() {
+      const message =
+        document.getElementById(
+          "leaderboardMessage"
+        );
+
+      const list =
+        document.getElementById(
+          "leaderboardList"
+        );
+
+      try {
+        const response =
+          await fetch(
+            `${LEADERBOARD_API}/leaderboard`
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message ||
+            "Unable to load leaderboard."
+          );
+        }
+
+        list.innerHTML = "";
+
+        if (
+          !Array.isArray(data.users) ||
+          data.users.length === 0
+        ) {
+          message.textContent =
+            "No users have valid Likes yet.";
+
+          return;
+        }
+
+        message.textContent =
+          `Top ${data.users.length} users`;
+
+        data.users.forEach((user) => {
+          const item =
+            document.createElement("div");
+
+          item.className =
+            "leaderboard-item";
+
+          const photo =
+            document.createElement("img");
+
+          photo.className =
+            "leaderboard-photo";
+
+          photo.alt =
+            `${user.name || "User"} profile photo`;
+
+          if (user.photo) {
+            photo.src = user.photo;
+          } else {
+            photo.style.display = "none";
+          }
+
+          const rank =
+            document.createElement("span");
+
+          rank.className =
+            "leaderboard-rank";
+
+          rank.textContent =
+            `#${user.rank}`;
+
+          const name =
+            document.createElement("span");
+
+          name.className =
+            "leaderboard-name";
+
+          name.textContent =
+            user.name || "VizoChat User";
+
+          const likes =
+            document.createElement("span");
+
+          likes.className =
+            "leaderboard-likes";
+
+          likes.textContent =
+            `${Number(
+              user.validLikes || 0
+            )} Valid Likes`;
+
+          item.appendChild(rank);
+          item.appendChild(photo);
+          item.appendChild(name);
+          item.appendChild(likes);
+
+          list.appendChild(item);
+        });
+
+      } catch (error) {
+        console.error(
+          "Leaderboard error:",
+          error
+        );
+
+        message.textContent =
+          error.message ||
+          "Unable to load leaderboard.";
+
+        list.innerHTML = "";
+      }
+    }
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      loadLeaderboard
+    );
   </script>
 
 </body>
