@@ -2,249 +2,130 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <title>VizoChat - Login</title>
   <meta
     name="description"
-    content="Login to VizoChat with Google."
+    content="Login to VizoChat with Google or continue as a guest."
   >
-
-  <title>Login - VizoChat</title>
 
   <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
-  <!-- Header -->
   <header class="site-header">
+    <div class="container header-inner">
 
-    <a
-      href="index.html"
-      class="logo"
-      aria-label="VizoChat Home"
-    >
-      VizoChat
-    </a>
+      <a href="index.html" class="logo">
+        VizoChat
+      </a>
 
-    <nav
-      class="nav-menu"
-      aria-label="Main navigation"
-    >
-      <a href="index.html">Home</a>
-      <a href="leaderboard.html">Top 20</a>
-      <a href="help.html">Help</a>
-    </nav>
+      <nav class="main-nav">
+        <a href="index.html">Home</a>
+        <a href="chat.html">Random Chat</a>
+        <a href="leaderboard.html">Top 20</a>
+        <a href="help.html">Help</a>
+      </nav>
 
+    </div>
   </header>
 
 
-  <!-- Login -->
-  <main>
+  <main class="login-page">
 
-    <section class="hero">
+    <div class="container">
 
-      <div class="hero-content">
+      <section class="login-card">
 
-        <p class="hero-label">
-          VIZOCHAT ACCOUNT
-        </p>
+        <h1>Welcome to VizoChat</h1>
 
-        <h1>
-          Welcome back.
-        </h1>
-
-        <p class="hero-description">
-          Sign in with your Google account to continue
-          using VizoChat.
+        <p class="login-subtitle">
+          Talk to someone new with random 1-to-1 video chat.
         </p>
 
 
-        <!-- Google Login Button -->
-        <div class="hero-actions">
-
-          <button
-            type="button"
-            class="btn btn-secondary"
-            id="googleLoginButton"
-          >
-            <span aria-hidden="true">G</span>
-            Continue with Google
-          </button>
-
-        </div>
-
-
-        <!-- Login Status -->
-        <p
+        <div
           id="loginMessage"
-          class="guest-info"
-          role="status"
-          aria-live="polite"
+          class="login-message"
+        ></div>
+
+
+        <button
+          id="googleLoginButton"
+          type="button"
+          class="google-login-button"
         >
-          Your account is secure and your profile will
-          be created after login.
-        </p>
+          Continue with Google
+        </button>
 
 
-        <!-- Guest Option -->
-        <div style="margin-top: 30px;">
+        <div class="login-divider">
+          <span>OR</span>
+        </div>
 
-          <a
-            href="chat.html"
-            class="btn btn-primary"
-          >
-            Continue as Guest
-          </a>
+
+        <a
+          href="chat.html"
+          id="guestButton"
+          class="guest-button"
+        >
+          Continue as Guest
+        </a>
+
+
+        <div class="guest-limit-info">
+
+          <strong>Guest access</strong>
+
+          <p>
+            You can use up to 10 random matches as a guest.
+            After 10 matches, Google Login is required.
+          </p>
 
         </div>
 
-      </div>
 
-    </section>
+        <div class="login-benefits">
 
+          <h2>Why create an account?</h2>
 
-    <!-- Login Information -->
-    <section class="features">
+          <ul>
+            <li>Save your VizoChat profile</li>
+            <li>Receive valid Likes</li>
+            <li>Earn ₹2 for every valid Like</li>
+            <li>Appear on the Top 20 leaderboard</li>
+            <li>Continue chatting after the guest limit</li>
+          </ul>
 
-      <div class="section-heading">
+        </div>
 
-        <p class="section-label">
-          WHY LOGIN?
-        </p>
+      </section>
 
-        <h2>
-          Your VizoChat profile
-        </h2>
-
-      </div>
-
-
-      <div class="feature-grid">
-
-        <article class="feature-card">
-
-          <div class="feature-icon">
-            ❤️
-          </div>
-
-          <h3>
-            Valid Likes
-          </h3>
-
-          <p>
-            Your valid Likes will be saved on your
-            VizoChat profile.
-          </p>
-
-        </article>
-
-
-        <article class="feature-card">
-
-          <div class="feature-icon">
-            💰
-          </div>
-
-          <h3>
-            Earnings
-          </h3>
-
-          <p>
-            Every valid Like can add ₹2 to your
-            VizoChat earnings.
-          </p>
-
-        </article>
-
-
-        <article class="feature-card">
-
-          <div class="feature-icon">
-            🏆
-          </div>
-
-          <h3>
-            Top 20
-          </h3>
-
-          <p>
-            Your valid Likes can contribute to the
-            Top 20 leaderboard.
-          </p>
-
-        </article>
-
-
-        <article class="feature-card">
-
-          <div class="feature-icon">
-            🎥
-          </div>
-
-          <h3>
-            Random Chat
-          </h3>
-
-          <p>
-            Continue meeting new people through
-            random video chat.
-          </p>
-
-        </article>
-
-      </div>
-
-    </section>
+    </div>
 
   </main>
 
 
-  <!-- Footer -->
   <footer class="site-footer">
 
-    <div class="footer-content">
-
-      <div>
-
-        <strong>
-          VizoChat
-        </strong>
-
-        <p>
-          Meet someone new.
-        </p>
-
-      </div>
-
-
-      <div class="footer-links">
-
-        <a href="index.html">
-          Home
-        </a>
-
-        <a href="leaderboard.html">
-          Top 20
-        </a>
-
-        <a href="help.html">
-          Help
-        </a>
-
-      </div>
-
-    </div>
-
-
-    <div class="footer-bottom">
+    <div class="container">
 
       <p>
-        © <span id="currentYear"></span>
+        Need help?
+        <a
+          href="https://t.me/zenithvizo"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Telegram Support @zenithvizo
+        </a>
+      </p>
+
+      <p>
+        &copy;
+        <span id="currentYear"></span>
         VizoChat. All rights reserved.
       </p>
 
@@ -253,37 +134,119 @@
   </footer>
 
 
-  <!-- Login Page Script -->
+  <script src="js/app.js"></script>
+  <script src="js/auth.js"></script>
+
   <script>
     "use strict";
 
-    const yearElement =
-      document.getElementById("currentYear");
+    const googleLoginButton =
+      document.getElementById(
+        "googleLoginButton"
+      );
 
-    if (yearElement) {
-      yearElement.textContent =
-        new Date().getFullYear();
+    const guestButton =
+      document.getElementById(
+        "guestButton"
+      );
+
+    const loginMessage =
+      document.getElementById(
+        "loginMessage"
+      );
+
+
+    function showLoginMessage(message) {
+      if (loginMessage) {
+        loginMessage.textContent = message;
+      }
     }
 
 
-    const googleLoginButton =
-      document.getElementById("googleLoginButton");
+    // If already logged in, go directly to profile.
+    if (
+      window.VizoAuth &&
+      window.VizoAuth.isLoggedIn()
+    ) {
+      window.location.href =
+        "profile.html";
+    }
 
-    const loginMessage =
-      document.getElementById("loginMessage");
 
-
+    // Google Login
     if (googleLoginButton) {
-
       googleLoginButton.addEventListener(
         "click",
-        function () {
+        () => {
 
-          loginMessage.textContent =
-            "Google login will be connected when the authentication backend is added.";
+          googleLoginButton.disabled =
+            true;
+
+          googleLoginButton.textContent =
+            "Connecting...";
+
+          showLoginMessage(
+            "Opening Google Login..."
+          );
+
+          if (
+            window.VizoAuth &&
+            typeof window.VizoAuth.startGoogleLogin ===
+              "function"
+          ) {
+            window.VizoAuth.startGoogleLogin();
+          } else {
+            googleLoginButton.disabled =
+              false;
+
+            googleLoginButton.textContent =
+              "Continue with Google";
+
+            showLoginMessage(
+              "Login service is not available."
+            );
+          }
+        }
+      );
+    }
+
+
+    // Guest Login
+    if (guestButton) {
+      guestButton.addEventListener(
+        "click",
+        (event) => {
+
+          if (
+            window.VizoAuth &&
+            !window.VizoAuth.canGuestStartMatch()
+          ) {
+            event.preventDefault();
+
+            showLoginMessage(
+              "Your 10 guest matches are finished. Please login with Google."
+            );
+          }
 
         }
       );
+    }
+
+
+    // Show guest status
+    if (
+      window.VizoAuth &&
+      window.VizoAuth.isGuest()
+    ) {
+
+      const remaining =
+        window.VizoAuth.getGuestMatchesRemaining();
+
+      if (remaining <= 0) {
+        showLoginMessage(
+          "Guest limit reached. Please login with Google."
+        );
+      }
 
     }
   </script>
