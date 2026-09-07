@@ -13,7 +13,11 @@ const {
 
 const router = express.Router();
 
-// Send Like
+
+// ========================================
+// SEND LIKE
+// ========================================
+
 router.post("/", (req, res) => {
   try {
     const {
@@ -22,7 +26,11 @@ router.post("/", (req, res) => {
       matchId
     } = req.body;
 
-    if (!senderId || !receiverId || !matchId) {
+    if (
+      !senderId ||
+      !receiverId ||
+      !matchId
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -30,7 +38,8 @@ router.post("/", (req, res) => {
       });
     }
 
-    // Only one Like is allowed in one chat
+
+    // Only one Like is allowed per chat
     if (hasLikeForMatch(matchId)) {
       return res.status(409).json({
         success: false,
@@ -39,54 +48,33 @@ router.post("/", (req, res) => {
       });
     }
 
+
     const like = createPendingLike({
       senderId,
       receiverId,
       matchId
     });
 
+
     return res.status(201).json({
       success: true,
+
       message:
-        "Like received. It will become valid if the receiver stays connected for 10 seconds.",
+        "Like received. The 10-second validation timer has started.",
+
       likeId: like.id,
-      status: like.status
-    });
-  } catch (error) {
-    console.error("Create Like error:", error);
 
-    return res.status(400).json({
-      success: false,
-      message:
-        error.message || "Unable to send Like."
-    });
-  }
-});
-
-// Mark receiver as connected
-router.post("/:likeId/receiver-connected", (req, res) => {
-  try {
-    const like = markReceiverConnected(
-      req.params.likeId
-    );
-
-    if (!like) {
-      return res.status(404).json({
-        success: false,
-        message: "Like not found."
-      });
-    }
-
-    return res.json({
-      success: true,
-      likeId: like.id,
       status: like.status,
-      receiverConnectedAt:
-        like.receiverConnectedAt
+
+      coins: 0,
+
+      secondsRemaining: 10
     });
+
   } catch (error) {
+
     console.error(
-      "Receiver connection error:",
+      "Create Like error:",
       error
     );
 
@@ -94,92 +82,215 @@ router.post("/:likeId/receiver-connected", (req, res) => {
       success: false,
       message:
         error.message ||
-        "Unable to update receiver connection."
+        "Unable to send Like."
     });
   }
 });
 
-// Validate Like
-router.post("/:likeId/validate", (req, res) => {
-  try {
-    const {
-      receiverStillConnected
-    } = req.body;
 
-    const like = validateLike(
-      req.params.likeId,
-      receiverStillConnected === true
-    );
+// ========================================
+// MARK RECEIVER CONNECTED
+// ========================================
 
-    return res.json({
-      success: true,
-      likeId: like.id,
-      status: like.status,
-      earning:
-        like.status === "valid"
-          ? getLikeEarning(like.id)
-          : 0,
-      secondsRemaining:
-        like.secondsRemaining || 0
-    });
-  } catch (error) {
-    console.error(
-      "Like validation error:",
-      error
-    );
+router.post(
+  "/:likeId/receiver-connected",
+  (req, res) => {
 
-    return res.status(400).json({
-      success: false,
-      message:
-        error.message ||
-        "Unable to validate Like."
-    });
-  }
-});
+    try {
 
-// Get Like status
-router.get("/:likeId", (req, res) => {
-  try {
-    const like = getLikeById(
-      req.params.likeId
-    );
+      const like =
+        markReceiverConnected(
+          req.params.likeId
+        );
 
-    if (!like) {
-      return res.status(404).json({
-        success: false,
-        message: "Like not found."
-      });
-    }
 
-    return res.json({
-      success: true,
-      like: {
-        id: like.id,
-        senderId: like.senderId,
-        receiverId: like.receiverId,
-        matchId: like.matchId,
+      if (!like) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Like not found."
+        });
+      }
+
+
+      return res.json({
+        success: true,
+
+        likeId: like.id,
+
         status: like.status,
-        earning:
-          like.status === "valid"
+
+        receiverConnectedAt:
+          like.receiverConnectedAt,
+
+        secondsRemaining:
+          like.status === "pending"
+            ? 10
+            : 0
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Receiver connection error:",
+        error
+      );
+
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Unable to update receiver connection."
+      });
+    }
+  }
+);
+
+
+// ========================================
+// VALIDATE LIKE
+// ========================================
+
+router.post(
+  "/:likeId/validate",
+  (req, res) => {
+
+    try {
+
+      const {
+        receiverStillConnected
+      } = req.body;
+
+
+      const like =
+        validateLike(
+          req.params.likeId,
+          receiverStillConnected === true
+        );
+
+
+      const isValid =
+        like.status === "valid";
+
+
+      return res.json({
+        success: true,
+
+        likeId: like.id,
+
+        status: like.status,
+
+        coins:
+          isValid
             ? getLikeEarning(like.id)
             : 0,
-        createdAt: like.createdAt,
+
+        secondsRemaining:
+          like.secondsRemaining || 0,
+
         validatedAt:
           like.validatedAt || null
-      }
-    });
-  } catch (error) {
-    console.error(
-      "Get Like error:",
-      error
-    );
+      });
 
-    return res.status(500).json({
-      success: false,
-      message:
-        "Unable to get Like status."
-    });
+    } catch (error) {
+
+      console.error(
+        "Like validation error:",
+        error
+      );
+
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Unable to validate Like."
+      });
+    }
   }
-});
+);
+
+
+// ========================================
+// GET LIKE STATUS
+// ========================================
+
+router.get(
+  "/:likeId",
+  (req, res) => {
+
+    try {
+
+      const like =
+        getLikeById(
+          req.params.likeId
+        );
+
+
+      if (!like) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Like not found."
+        });
+      }
+
+
+      const isValid =
+        like.status === "valid";
+
+
+      return res.json({
+        success: true,
+
+        like: {
+          id: like.id,
+
+          senderId:
+            like.senderId,
+
+          receiverId:
+            like.receiverId,
+
+          matchId:
+            like.matchId,
+
+          status:
+            like.status,
+
+          coins:
+            isValid
+              ? getLikeEarning(like.id)
+              : 0,
+
+          secondsRemaining:
+            like.secondsRemaining || 0,
+
+          createdAt:
+            like.createdAt,
+
+          receiverConnectedAt:
+            like.receiverConnectedAt || null,
+
+          validatedAt:
+            like.validatedAt || null
+        }
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Get Like error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to get Like status."
+      });
+    }
+  }
+);
+
 
 module.exports = router;
