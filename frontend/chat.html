@@ -1,35 +1,391 @@
-<script src="./js/app.js?v=3"></script>
-<script src="./js/auth.js?v=3"></script>
-<script src="./js/like.js?v=3"></script>
-<script src="./js/chat.js?v=3"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
 
-<script>
-  window.addEventListener("error", function (event) {
-    const box = document.getElementById("status");
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
-    if (box) {
-      box.textContent =
-        "JavaScript Error: " +
-        (event.message || "Unknown error");
+  <meta
+    name="description"
+    content="VizoChat random 1-to-1 video chat"
+  >
+
+  <title>VizoChat - Random Video Chat</title>
+
+  <link rel="stylesheet" href="./css/style.css?v=3">
+
+  <style>
+    .chat-page {
+      min-height: 100vh;
+      padding-bottom: 30px;
     }
 
-    console.error("VizoChat page error:", event.error);
-  });
+    .video-area {
+      max-width: 1100px;
+      margin: 25px auto;
+      padding: 0 15px;
+    }
 
-  window.addEventListener("load", function () {
-    setTimeout(function () {
-      if (!window.VizoChat) {
-        const box = document.getElementById("status");
+    .video-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
 
-        if (box) {
-          box.textContent =
-            "VizoChat chat.js load nahi hua. Please reload.";
+    .video-box {
+      position: relative;
+      background: #111;
+      border-radius: 16px;
+      overflow: hidden;
+      min-height: 300px;
+      border: 1px solid #333;
+    }
+
+    .video-box video {
+      width: 100%;
+      height: 100%;
+      min-height: 300px;
+      object-fit: cover;
+      display: block;
+      background: #111;
+    }
+
+    .video-label {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 5;
+      background: rgba(0,0,0,.65);
+      color: white;
+      padding: 7px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #aaa;
+      padding: 20px;
+      pointer-events: none;
+    }
+
+    .video-placeholder.hidden {
+      display: none;
+    }
+
+    .chat-status {
+      max-width: 700px;
+      margin: 15px auto;
+      padding: 14px 18px;
+      border-radius: 12px;
+      background: #181818;
+      color: #ddd;
+      text-align: center;
+      border: 1px solid #333;
+    }
+
+    .chat-controls {
+      max-width: 700px;
+      margin: 15px auto;
+      padding: 0 15px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .chat-controls button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .chat-controls button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .guest-info {
+      text-align: center;
+      color: #aaa;
+      margin: 10px;
+    }
+
+    .timer {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .video-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .video-box,
+      .video-box video {
+        min-height: 250px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="chat-page">
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="container">
+
+        <a href="./index.html" class="logo">
+          VizoChat
+        </a>
+
+        <nav>
+          <a href="./index.html">Home</a>
+          <a href="./profile.html">Profile</a>
+          <a href="./leaderboard.html">Top 20</a>
+          <a href="./help.html">Help</a>
+        </nav>
+
+      </div>
+    </header>
+
+
+    <!-- Main Chat -->
+    <main>
+
+      <section class="video-area">
+
+        <div class="video-grid">
+
+          <!-- Remote video -->
+          <div class="video-box">
+
+            <video
+              id="remoteVideo"
+              autoplay
+              playsinline
+              muted
+            ></video>
+
+            <div class="video-label">
+              Stranger
+            </div>
+
+            <div
+              id="remotePlaceholder"
+              class="video-placeholder"
+            >
+              Looking for someone...
+            </div>
+
+          </div>
+
+
+          <!-- Local video -->
+          <div class="video-box">
+
+            <video
+              id="localVideo"
+              autoplay
+              playsinline
+              muted
+            ></video>
+
+            <div class="video-label">
+              You
+            </div>
+
+            <div
+              id="localPlaceholder"
+              class="video-placeholder"
+            >
+              Camera is starting...
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- Status -->
+        <div
+          id="status"
+          class="chat-status"
+        >
+          Starting VizoChat...
+        </div>
+
+
+        <!-- Timer -->
+        <div
+          id="timer"
+          class="timer"
+        >
+          Match Time: 00:00
+        </div>
+
+
+        <!-- Guest counter -->
+        <div
+          id="guestCounter"
+          class="guest-info"
+        >
+          Guest Matches: 0/10
+        </div>
+
+
+        <!-- Controls -->
+        <div class="chat-controls">
+
+          <button
+            id="cameraBtn"
+            type="button"
+          >
+            📷 Camera
+          </button>
+
+          <button
+            id="micBtn"
+            type="button"
+          >
+            🎤 Mic
+          </button>
+
+          <button
+            id="likeBtn"
+            type="button"
+            disabled
+          >
+            ❤️ Like
+          </button>
+
+          <button
+            id="reportBtn"
+            type="button"
+            disabled
+          >
+            🚨 Report
+          </button>
+
+          <button
+            id="nextBtn"
+            type="button"
+          >
+            ⏭️ Next
+          </button>
+
+        </div>
+
+      </section>
+
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          © <span id="year"></span> VizoChat. All rights reserved.
+        </p>
+      </div>
+    </footer>
+
+  </div>
+
+
+  <!-- Common JavaScript -->
+  <script src="./js/app.js?v=3"></script>
+
+  <!-- Authentication -->
+  <script src="./js/auth.js?v=3"></script>
+
+  <!-- Like / Report -->
+  <script src="./js/like.js?v=3"></script>
+
+  <!-- Main Chat -->
+  <script src="./js/chat.js?v=3"></script>
+
+
+  <!-- Error detector -->
+  <script>
+    window.addEventListener("error", function (event) {
+
+      console.error(
+        "VizoChat JavaScript Error:",
+        event.error || event.message
+      );
+
+      const box = document.getElementById("status");
+
+      if (box) {
+        box.textContent =
+          "JavaScript Error: " +
+          (event.message || "Unknown error");
+      }
+
+    });
+
+
+    window.addEventListener("unhandledrejection", function (event) {
+
+      console.error(
+        "VizoChat Promise Error:",
+        event.reason
+      );
+
+      const box = document.getElementById("status");
+
+      if (box) {
+        box.textContent =
+          "Connection Error. Please reload.";
+      }
+
+    });
+
+
+    window.addEventListener("load", function () {
+
+      const year = document.getElementById("year");
+
+      if (year) {
+        year.textContent = new Date().getFullYear();
+      }
+
+      setTimeout(function () {
+
+        if (!window.VizoChat) {
+
+          const box = document.getElementById("status");
+
+          if (box) {
+            box.textContent =
+              "VizoChat chat.js load nahi hua. Check JavaScript files.";
+          }
+
+          console.error(
+            "VizoChat: window.VizoChat is missing."
+          );
+
         }
 
-        console.error(
-          "VizoChat: window.VizoChat is missing."
-        );
-      }
-    }, 1500);
-  });
-</script>
+      }, 2000);
+
+    });
+  </script>
+
+</body>
+</html>
