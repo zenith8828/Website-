@@ -6,7 +6,8 @@
 
 const GUEST_MATCH_LIMIT = 10;
 
-const LIKE_VALUE_RUPEES = 2;
+// 1 valid Like = 2 Coins
+const LIKE_VALUE_COINS = 2;
 
 const LIKE_VALIDATION_SECONDS = 10;
 
@@ -22,7 +23,7 @@ const SUPPORT_TELEGRAM = "@zenithvizo";
 
 module.exports = {
   GUEST_MATCH_LIMIT,
-  LIKE_VALUE_RUPEES,
+  LIKE_VALUE_COINS,
   LIKE_VALIDATION_SECONDS,
   REPORT_WINDOW_MINUTES,
   REPORT_BAN_LIMIT,
