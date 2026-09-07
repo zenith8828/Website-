@@ -15,7 +15,7 @@
 
   <title>VizoChat - Random Video Chat</title>
 
-  <link rel="stylesheet" href="./css/style.css?v=10">
+  <link rel="stylesheet" href="./css/style.css?v=11">
 
   <style>
     * {
@@ -28,9 +28,7 @@
       height: 100%;
       margin: 0;
       padding: 0;
-
       overflow: hidden;
-
       background: #020617;
     }
 
@@ -39,14 +37,12 @@
       inset: 0;
     }
 
-
     /* =========================================
        PAGE
     ========================================== */
 
     .chat-page {
       width: 100%;
-
       height: 100dvh;
       min-height: 100dvh;
 
@@ -63,57 +59,6 @@
         ),
         #020617;
     }
-
-
-    /* =========================================
-       HEADER
-    ========================================== */
-
-    .chat-header {
-      height: 48px;
-      min-height: 48px;
-
-      display: flex;
-
-      align-items: center;
-      justify-content: space-between;
-
-      padding: 0 14px;
-
-      background: rgba(2, 6, 23, 0.97);
-
-      border-bottom:
-        1px solid rgba(59, 130, 246, 0.25);
-
-      position: relative;
-
-      z-index: 200;
-    }
-
-    .chat-logo {
-      color: #ffffff;
-
-      text-decoration: none;
-
-      font-size: 20px;
-
-      font-weight: 800;
-    }
-
-    .chat-logo span {
-      color: #8b5cf6;
-    }
-
-    .header-link {
-      color: #cbd5e1;
-
-      text-decoration: none;
-
-      font-size: 14px;
-
-      font-weight: 600;
-    }
-
 
     /* =========================================
        MAIN
@@ -138,7 +83,6 @@
       flex-direction: column;
     }
 
-
     /* =========================================
        VIDEO AREA
     ========================================== */
@@ -159,11 +103,8 @@
       flex-direction: column;
     }
 
-
     /* =========================================
        VIDEO GRID
-
-       BOTH BOXES = EXACTLY 50%
     ========================================== */
 
     .video-grid {
@@ -184,11 +125,8 @@
       overflow: hidden;
     }
 
-
     /* =========================================
        VIDEO BOX
-
-       BOTH BOXES SAME SIZE
     ========================================== */
 
     .video-box {
@@ -222,7 +160,6 @@
         0 0 14px rgba(37, 99, 235, 0.65),
         0 0 24px rgba(168, 85, 247, 0.30);
     }
-
 
     /* =========================================
        NEON BORDER
@@ -261,7 +198,6 @@
       z-index: 30;
     }
 
-
     /* =========================================
        VIDEO
     ========================================== */
@@ -285,7 +221,6 @@
 
       z-index: 1;
     }
-
 
     /* =========================================
        PLACEHOLDER
@@ -316,9 +251,8 @@
       display: none;
     }
 
-
     /* =========================================
-       VICHAT / YOU LABEL
+       VIZOCHAT / YOU LABEL
     ========================================== */
 
     .video-label {
@@ -378,7 +312,6 @@
 
       font-weight: 900;
     }
-
 
     /* =========================================
        CUT + REPORT
@@ -456,7 +389,6 @@
       padding-left: 14px;
     }
 
-
     /* =========================================
        LIKE BUTTON
     ========================================== */
@@ -507,7 +439,6 @@
       cursor: pointer;
     }
 
-
     /* =========================================
        LIKE TIMER
     ========================================== */
@@ -540,7 +471,6 @@
       box-shadow:
         0 0 12px rgba(124, 58, 237, 0.45);
     }
-
 
     /* =========================================
        STATUS
@@ -584,7 +514,6 @@
       pointer-events: none;
     }
 
-
     /* =========================================
        HIDE OLD ELEMENTS
     ========================================== */
@@ -601,7 +530,6 @@
     #micBtn {
       display: none !important;
     }
-
 
     /* =========================================
        CONTROLS INSIDE YOUR VIDEO BOX
@@ -622,7 +550,6 @@
 
       gap: 14px;
     }
-
 
     .control-box {
       width: 58px;
@@ -665,7 +592,6 @@
       transform: scale(0.92);
     }
 
-
     /* =========================================
        COIN
     ========================================== */
@@ -681,7 +607,6 @@
         inset 0 0 10px rgba(168, 85, 247, 0.15);
     }
 
-
     /* =========================================
        OLD CHAT CONTROLS
     ========================================== */
@@ -692,23 +617,11 @@
       padding: 0;
     }
 
-
     /* =========================================
        MOBILE
     ========================================== */
 
     @media (max-width: 700px) {
-
-      .chat-header {
-        height: 45px;
-        min-height: 45px;
-
-        padding: 0 12px;
-      }
-
-      .chat-logo {
-        font-size: 18px;
-      }
 
       .chat-main {
         padding:
@@ -717,24 +630,12 @@
           env(safe-area-inset-bottom, 0px);
       }
 
-
-      /*
-        Important:
-        Navigation bar ke liye
-        safe-area-bottom add hoga.
-      */
-
       .video-grid {
         gap: 3px;
 
         padding-bottom:
           env(safe-area-inset-bottom, 0px);
       }
-
-
-      /*
-        BOTH VIDEO BOXES EXACTLY EQUAL
-      */
 
       .video-box {
         height: calc(
@@ -760,8 +661,7 @@
         border-radius: 15px;
       }
 
-
-      /* Vichat */
+      /* VizoChat */
 
       .video-label {
         left: 9px;
@@ -783,7 +683,6 @@
       .video-label-logo::after {
         font-size: 22px;
       }
-
 
       /* Cut + Report */
 
@@ -811,7 +710,6 @@
         padding-left: 10px;
       }
 
-
       /* Like */
 
       .like-floating {
@@ -825,7 +723,6 @@
         font-size: 27px;
       }
 
-
       /* Like timer */
 
       #likeValidationTimer {
@@ -838,10 +735,7 @@
         padding: 7px 10px;
       }
 
-
-      /* =================================
-         CONTROLS INSIDE LOWER BOX
-      ================================== */
+      /* Controls */
 
       .your-video-controls {
         left: 10px;
@@ -861,7 +755,6 @@
         font-size: 24px;
       }
 
-
       /* Status */
 
       .chat-status {
@@ -872,7 +765,6 @@
         font-size: 9px;
       }
     }
-
 
     /* =========================================
        SMALL MOBILE
@@ -917,7 +809,6 @@
       }
     }
 
-
     /* =========================================
        LANDSCAPE MOBILE
     ========================================== */
@@ -927,15 +818,6 @@
     ) and (
       orientation: landscape
     ) {
-
-      .chat-header {
-        height: 40px;
-        min-height: 40px;
-      }
-
-      .chat-main {
-        padding-top: 3px;
-      }
 
       .your-video-controls {
         bottom: 6px;
@@ -954,34 +836,9 @@
   </style>
 </head>
 
-
 <body>
 
   <div class="chat-page">
-
-
-    <!-- =====================================
-         HEADER
-    ====================================== -->
-
-    <header class="chat-header">
-
-      <a
-        href="./index.html"
-        class="chat-logo"
-      >
-        Vizo<span>Chat</span>
-      </a>
-
-      <a
-        href="./profile.html"
-        class="header-link"
-      >
-        Profile
-      </a>
-
-    </header>
-
 
     <!-- =====================================
          MAIN
@@ -991,13 +848,11 @@
 
       <section class="video-area">
 
-
         <!-- =================================
              TWO EQUAL VIDEO BOXES
         ================================== -->
 
         <div class="video-grid">
-
 
           <!-- =================================
                STRANGER VIDEO
@@ -1011,7 +866,6 @@
               playsinline
             ></video>
 
-
             <div
               id="remotePlaceholder"
               class="video-placeholder"
@@ -1019,8 +873,7 @@
               Looking for someone...
             </div>
 
-
-            <!-- VICHAT -->
+            <!-- VIZOCHAT -->
 
             <div class="video-label">
 
@@ -1029,11 +882,10 @@
               ></div>
 
               <span>
-                Vichat
+                VizoChat
               </span>
 
             </div>
-
 
             <!-- CUT + REPORT -->
 
@@ -1048,7 +900,6 @@
                 ✂️ Cut
               </button>
 
-
               <button
                 id="reportBtn"
                 class="top-action-button report-action"
@@ -1060,7 +911,6 @@
               </button>
 
             </div>
-
 
             <!-- LIKE -->
 
@@ -1077,7 +927,6 @@
 
           </div>
 
-
           <!-- =================================
                YOUR VIDEO
           ================================== -->
@@ -1091,7 +940,6 @@
               muted
             ></video>
 
-
             <div
               id="localPlaceholder"
               class="video-placeholder"
@@ -1099,23 +947,19 @@
               Camera is starting...
             </div>
 
-
             <!-- YOU -->
 
             <div class="video-label">
               You
             </div>
 
-
             <!-- =================================
                  CHAT / CAMERA / COIN
-                 INSIDE YOUR VIDEO BOX
             ================================== -->
 
             <div
               class="your-video-controls"
             >
-
 
               <!-- CHAT -->
 
@@ -1129,7 +973,6 @@
                 💬
               </button>
 
-
               <!-- CAMERA -->
 
               <button
@@ -1141,7 +984,6 @@
               >
                 📷
               </button>
-
 
               <!-- COIN -->
 
@@ -1155,9 +997,7 @@
                 🪙
               </button>
 
-
             </div>
-
 
             <!-- OLD MIC
                  KEPT FOR JS COMPATIBILITY -->
@@ -1173,7 +1013,6 @@
 
         </div>
 
-
         <!-- =================================
              STATUS
         ================================== -->
@@ -1185,7 +1024,6 @@
           Starting VizoChat...
         </div>
 
-
         <!-- OLD TIMER -->
 
         <div
@@ -1194,7 +1032,6 @@
         >
           Match Time: 00:00
         </div>
-
 
         <!-- OLD GUEST COUNTER -->
 
@@ -1208,7 +1045,6 @@
       </section>
 
     </main>
-
 
     <!-- =====================================
          FOOTER
@@ -1230,21 +1066,19 @@
 
   </div>
 
-
   <!-- =====================================
        JAVASCRIPT
   ====================================== -->
 
-  <script src="./js/app.js?v=10"></script>
+  <script src="./js/app.js?v=11"></script>
 
-  <script src="./js/auth.js?v=10"></script>
+  <script src="./js/auth.js?v=11"></script>
 
-  <script src="./js/like.js?v=10"></script>
+  <script src="./js/like.js?v=11"></script>
 
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 
-  <script src="./js/chat.js?v=10"></script>
-
+  <script src="./js/chat.js?v=11"></script>
 
   <!-- =====================================
        ERROR DETECTOR
@@ -1278,7 +1112,6 @@
       }
     );
 
-
     window.addEventListener(
       "unhandledrejection",
       function (event) {
@@ -1301,7 +1134,6 @@
       }
     );
 
-
     window.addEventListener(
       "load",
       function () {
@@ -1315,7 +1147,6 @@
             new Date().getFullYear();
 
         }
-
 
         setTimeout(
           function () {
