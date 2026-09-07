@@ -9,22 +9,23 @@ const helmet = require("helmet");
 const { Server } = require("socket.io");
 
 const apiRoutes = require("./routes");
+
 const {
   canGuestStartMatch,
   recordGuestMatch
 } = require("./services/guestService");
+
 const {
   canUserAccess
 } = require("./models/user");
-
 
 const app = express();
 const server = http.createServer(app);
 
 
-// ================================
+// ========================================
 // CONFIGURATION
-// ================================
+// ========================================
 
 const PORT = Number(process.env.PORT) || 5000;
 
@@ -33,9 +34,9 @@ const FRONTEND_URL =
   "http://localhost:3000";
 
 
-// ================================
+// ========================================
 // MIDDLEWARE
-// ================================
+// ========================================
 
 app.use(
   helmet({
@@ -48,18 +49,34 @@ app.use(
 app.use(
   cors({
     origin: FRONTEND_URL,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS"
+    ],
     credentials: true
   })
 );
 
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(
+  express.json({
+    limit: "1mb"
+  })
+);
+
+app.use(
+  express.urlencoded({
+    extended: true
+  })
+);
 
 
-// ================================
-// API ROUTES
-// ================================
+// ========================================
+// API
+// ========================================
 
 app.get("/", (req, res) => {
   res.json({
@@ -72,9 +89,9 @@ app.get("/", (req, res) => {
 app.use("/api", apiRoutes);
 
 
-// ================================
+// ========================================
 // SOCKET.IO
-// ================================
+// ========================================
 
 const io = new Server(server, {
   cors: {
@@ -85,41 +102,33 @@ const io = new Server(server, {
 });
 
 
-// ================================
+// ========================================
 // MATCH STORAGE
-// ================================
+// ========================================
 
-const waitingUsers = [];
+const waitingUsers = new Map();
 const activeMatches = new Map();
 const socketUsers = new Map();
 
 
-// ================================
-// HELPER FUNCTIONS
-// ================================
+// ========================================
+// HELPERS
+// ========================================
 
-function removeFromWaiting(socketId) {
-
-  const index =
-    waitingUsers.findIndex(
-      (user) => user.socketId === socketId
-    );
-
-  if (index !== -1) {
-    waitingUsers.splice(index, 1);
-  }
+function isSocketOnline(socketId) {
+  return Boolean(
+    io.sockets.sockets.get(socketId)
+  );
 }
 
 
-function getSocketById(socketId) {
-  return io.sockets.sockets.get(socketId) || null;
+function removeFromWaiting(socketId) {
+  waitingUsers.delete(socketId);
 }
 
 
 function getActiveMatch(socketId) {
-
   for (const match of activeMatches.values()) {
-
     if (
       match.userA === socketId ||
       match.userB === socketId
@@ -133,7 +142,6 @@ function getActiveMatch(socketId) {
 
 
 function getPartnerSocketId(match, socketId) {
-
   if (!match) {
     return null;
   }
@@ -150,71 +158,7 @@ function getPartnerSocketId(match, socketId) {
 }
 
 
-function isValidPartner(socketId, partnerSocketId) {
-
-  const match =
-    getActiveMatch(socketId);
-
-  if (!match) {
-    return false;
-  }
-
-  return (
-    getPartnerSocketId(
-      match,
-      socketId
-    ) === partnerSocketId
-  );
-}
-
-
-function endMatchForSocket(
-  socketId,
-  reason = "ended"
-) {
-
-  const match =
-    getActiveMatch(socketId);
-
-  if (!match) {
-    removeFromWaiting(socketId);
-    return null;
-  }
-
-  activeMatches.delete(match.matchId);
-
-  const partnerSocketId =
-    getPartnerSocketId(
-      match,
-      socketId
-    );
-
-  const partnerSocket =
-    partnerSocketId
-      ? getSocketById(partnerSocketId)
-      : null;
-
-  if (partnerSocket) {
-
-    partnerSocket.emit(
-      "partner-disconnected",
-      {
-        matchId: match.matchId,
-        reason
-      }
-    );
-  }
-
-  return match;
-}
-
-
-function sendToPartner(
-  socket,
-  event,
-  data
-) {
-
+function sendToPartner(socket, event, data) {
   const match =
     getActiveMatch(socket.id);
 
@@ -222,24 +166,26 @@ function sendToPartner(
     return false;
   }
 
-  const partnerSocketId =
+  const partnerId =
     getPartnerSocketId(
       match,
       socket.id
     );
 
-  if (!partnerSocketId) {
+  if (!partnerId) {
     return false;
   }
 
-  const partnerSocket =
-    getSocketById(partnerSocketId);
+  const partner =
+    io.sockets.sockets.get(
+      partnerId
+    );
 
-  if (!partnerSocket) {
+  if (!partner) {
     return false;
   }
 
-  partnerSocket.emit(
+  partner.emit(
     event,
     data
   );
@@ -248,20 +194,82 @@ function sendToPartner(
 }
 
 
-// ================================
+function endMatch(socketId, reason) {
+  const match =
+    getActiveMatch(socketId);
+
+  if (!match) {
+    removeFromWaiting(socketId);
+    return null;
+  }
+
+  activeMatches.delete(
+    match.matchId
+  );
+
+  const partnerId =
+    getPartnerSocketId(
+      match,
+      socketId
+    );
+
+  const partner =
+    partnerId
+      ? io.sockets.sockets.get(partnerId)
+      : null;
+
+  if (partner) {
+    partner.emit(
+      "partner-disconnected",
+      {
+        matchId: match.matchId,
+        reason:
+          reason || "ended"
+      }
+    );
+  }
+
+  return match;
+}
+
+
+// ========================================
+// REMOVE DEAD WAITING USERS
+// ========================================
+
+function cleanWaitingUsers() {
+  for (const [socketId, user] of waitingUsers) {
+    if (!isSocketOnline(socketId)) {
+      waitingUsers.delete(socketId);
+      continue;
+    }
+
+    if (!socketUsers.has(socketId)) {
+      waitingUsers.delete(socketId);
+      continue;
+    }
+
+    if (!user) {
+      waitingUsers.delete(socketId);
+    }
+  }
+}
+
+
+// ========================================
 // SOCKET CONNECTION
-// ================================
+// ========================================
 
 io.on("connection", (socket) => {
 
   console.log(
-    `Socket connected: ${socket.id}`
+    `[SOCKET] Connected: ${socket.id}`
   );
 
 
-  // ================================
+  // ======================================
   // REGISTER USER
-  // ================================
+  // ======================================
 
   socket.on(
     "register-user",
@@ -272,12 +280,19 @@ io.on("connection", (socket) => {
           ? data.userId.trim()
           : "";
 
+      /*
+       * Support both:
+       * data.isGuest
+       * data.userType
+       */
+
       const isGuest =
-        Boolean(data.isGuest);
+        typeof data.isGuest === "boolean"
+          ? data.isGuest
+          : data.userType === "guest";
 
 
       if (!userId) {
-
         socket.emit(
           "server-error",
           {
@@ -294,8 +309,14 @@ io.on("connection", (socket) => {
         socket.id,
         {
           userId,
-          isGuest
+          isGuest,
+          registeredAt: Date.now()
         }
+      );
+
+
+      console.log(
+        `[REGISTER] ${socket.id} | ${userId} | guest=${isGuest}`
       );
 
 
@@ -311,20 +332,19 @@ io.on("connection", (socket) => {
   );
 
 
-  // ================================
+  // ======================================
   // FIND RANDOM USER
-  // ================================
+  // ======================================
 
   socket.on(
     "find-random-user",
-    (data = {}) => {
+    () => {
 
       const currentUser =
         socketUsers.get(socket.id);
 
 
       if (!currentUser) {
-
         socket.emit(
           "server-error",
           {
@@ -337,31 +357,10 @@ io.on("connection", (socket) => {
       }
 
 
-      if (
-        !canUserAccess(
-          currentUser.userId
-        )
-      ) {
-
-        socket.emit(
-          "match-error",
-          {
-            message:
-              "You cannot start a chat right now."
-          }
-        );
-
-        return;
-      }
-
-
-      // Do not create another match
-      // while already connected.
-
-      if (
-        getActiveMatch(socket.id)
-      ) {
-
+      /*
+       * User already has an active match.
+       */
+      if (getActiveMatch(socket.id)) {
         socket.emit(
           "match-error",
           {
@@ -374,128 +373,28 @@ io.on("connection", (socket) => {
       }
 
 
+      /*
+       * Remove this socket from old
+       * waiting position first.
+       */
       removeFromWaiting(
         socket.id
       );
 
 
-      // ================================
-      // GUEST LIMIT
-      // ================================
-
-      if (currentUser.isGuest) {
-
-        if (
-          !canGuestStartMatch(
-            currentUser.userId
-          )
-        ) {
-
-          socket.emit(
-            "guest-limit-reached",
-            {
-              limit: 10,
-              message:
-                "Your 10 guest matches are finished. Please login with Google."
-            }
-          );
-
-          return;
-        }
-      }
-
-
-      // ================================
-      // FIND WAITING PARTNER
-      // ================================
-
-      let partnerIndex = -1;
-
-
-      for (
-        let index = 0;
-        index < waitingUsers.length;
-        index++
+      /*
+       * Check ban/access.
+       */
+      if (
+        !canUserAccess(
+          currentUser.userId
+        )
       ) {
-
-        const waitingUser =
-          waitingUsers[index];
-
-
-        if (
-          !waitingUser ||
-          waitingUser.socketId === socket.id
-        ) {
-          continue;
-        }
-
-
-        const partnerSocket =
-          getSocketById(
-            waitingUser.socketId
-          );
-
-
-        if (!partnerSocket) {
-          continue;
-        }
-
-
-        const partnerData =
-          socketUsers.get(
-            waitingUser.socketId
-          );
-
-
-        if (!partnerData) {
-          continue;
-        }
-
-
-        if (
-          !canUserAccess(
-            partnerData.userId
-          )
-        ) {
-          continue;
-        }
-
-
-        if (
-          partnerData.isGuest &&
-          !canGuestStartMatch(
-            partnerData.userId
-          )
-        ) {
-          continue;
-        }
-
-
-        partnerIndex = index;
-
-        break;
-      }
-
-
-      // ================================
-      // NO PARTNER
-      // ================================
-
-      if (partnerIndex === -1) {
-
-        waitingUsers.push({
-          socketId: socket.id,
-          userId: currentUser.userId,
-          isGuest: currentUser.isGuest,
-          joinedAt: Date.now()
-        });
-
-
         socket.emit(
-          "waiting-for-user",
+          "match-error",
           {
             message:
-              "Waiting for someone new..."
+              "You cannot start a chat right now."
           }
         );
 
@@ -503,21 +402,246 @@ io.on("connection", (socket) => {
       }
 
 
-      // ================================
-      // CREATE MATCH
-      // ================================
-
-      const partner =
-        waitingUsers.splice(
-          partnerIndex,
-          1
-        )[0];
-
-
-      const partnerData =
-        socketUsers.get(
-          partner.socketId
+      /*
+       * Guest limit.
+       */
+      if (
+        currentUser.isGuest &&
+        !canGuestStartMatch(
+          currentUser.userId
+        )
+      ) {
+        socket.emit(
+          "guest-limit-reached",
+          {
+            limit: 10,
+            message:
+              "Your 10 guest matches are finished. Please login with Google."
+          }
         );
+
+        return;
+      }
+
+
+      /*
+       * Clean dead waiting sockets.
+       */
+      cleanWaitingUsers();
+
+
+      // ==================================
+      // FIND A REAL WAITING PARTNER
+      // ==================================
+
+      let partner = null;
+
+
+      for (const [
+        partnerSocketId,
+        waitingUser
+      ] of waitingUsers) {
+
+        /*
+         * Never match socket with itself.
+         */
+        if (
+          partnerSocketId === socket.id
+        ) {
+          continue;
+        }
+
+
+        /*
+         * Socket must actually exist.
+         */
+        if (
+          !isSocketOnline(
+            partnerSocketId
+          )
+        ) {
+          waitingUsers.delete(
+            partnerSocketId
+          );
+
+          continue;
+        }
+
+
+        const partnerData =
+          socketUsers.get(
+            partnerSocketId
+          );
+
+
+        if (!partnerData) {
+          waitingUsers.delete(
+            partnerSocketId
+          );
+
+          continue;
+        }
+
+
+        /*
+         * Don't match same logged-in user
+         * with another tab/device.
+         */
+        if (
+          partnerData.userId ===
+          currentUser.userId
+        ) {
+          continue;
+        }
+
+
+        /*
+         * Partner must not already be matched.
+         */
+        if (
+          getActiveMatch(
+            partnerSocketId
+          )
+        ) {
+          waitingUsers.delete(
+            partnerSocketId
+          );
+
+          continue;
+        }
+
+
+        /*
+         * Partner must be allowed.
+         */
+        if (
+          !canUserAccess(
+            partnerData.userId
+          )
+        ) {
+          waitingUsers.delete(
+            partnerSocketId
+          );
+
+          continue;
+        }
+
+
+        /*
+         * Partner guest limit.
+         */
+        if (
+          partnerData.isGuest &&
+          !canGuestStartMatch(
+            partnerData.userId
+          )
+        ) {
+          waitingUsers.delete(
+            partnerSocketId
+          );
+
+          continue;
+        }
+
+
+        /*
+         * REAL PARTNER FOUND.
+         */
+        partner = {
+          socketId: partnerSocketId,
+          userId: partnerData.userId,
+          isGuest: partnerData.isGuest
+        };
+
+        break;
+      }
+
+
+      // ==================================
+      // NO PARTNER
+      // ==================================
+
+      if (!partner) {
+
+        waitingUsers.set(
+          socket.id,
+          {
+            socketId: socket.id,
+            userId:
+              currentUser.userId,
+            isGuest:
+              currentUser.isGuest,
+            joinedAt:
+              Date.now()
+          }
+        );
+
+
+        console.log(
+          `[WAITING] ${socket.id} is searching. Waiting users=${waitingUsers.size}`
+        );
+
+
+        /*
+         * IMPORTANT:
+         * Only Searching/Waiting.
+         *
+         * NO match-found.
+         * NO connected.
+         * NO timer.
+         */
+        socket.emit(
+          "waiting-for-user",
+          {
+            message:
+              "Searching for someone..."
+          }
+        );
+
+        return;
+      }
+
+
+      // ==================================
+      // CREATE REAL MATCH
+      // ==================================
+
+      waitingUsers.delete(
+        partner.socketId
+      );
+
+
+      /*
+       * Final safety check.
+       */
+      if (
+        !isSocketOnline(
+          partner.socketId
+        )
+      ) {
+        socket.emit(
+          "waiting-for-user",
+          {
+            message:
+              "Searching for someone..."
+          }
+        );
+
+        waitingUsers.set(
+          socket.id,
+          {
+            socketId: socket.id,
+            userId:
+              currentUser.userId,
+            isGuest:
+              currentUser.isGuest,
+            joinedAt:
+              Date.now()
+          }
+        );
+
+        return;
+      }
 
 
       const matchId =
@@ -527,7 +651,6 @@ io.on("connection", (socket) => {
 
 
       const match = {
-
         matchId,
 
         userA:
@@ -540,7 +663,7 @@ io.on("connection", (socket) => {
           currentUser.userId,
 
         userBId:
-          partnerData.userId,
+          partner.userId,
 
         startedAt:
           new Date(),
@@ -559,43 +682,84 @@ io.on("connection", (socket) => {
       );
 
 
-      // Count a guest match on server.
-      // This is the real guest limit tracker.
-
-      if (currentUser.isGuest) {
+      /*
+       * Record guest matches.
+       */
+      if (
+        currentUser.isGuest
+      ) {
         recordGuestMatch(
           currentUser.userId
         );
       }
 
 
-      if (partnerData.isGuest) {
+      if (
+        partner.isGuest
+      ) {
         recordGuestMatch(
-          partnerData.userId
+          partner.userId
         );
       }
 
 
       const socketA =
-        getSocketById(
+        io.sockets.sockets.get(
           match.userA
         );
 
       const socketB =
-        getSocketById(
+        io.sockets.sockets.get(
           match.userB
         );
 
 
+      /*
+       * If either disappeared,
+       * don't create the match.
+       */
       if (!socketA || !socketB) {
 
         activeMatches.delete(
           matchId
         );
 
+        if (socketA) {
+          waitingUsers.set(
+            socketA.id,
+            {
+              socketId:
+                socketA.id,
+              userId:
+                currentUser.userId,
+              isGuest:
+                currentUser.isGuest,
+              joinedAt:
+                Date.now()
+            }
+          );
+
+          socketA.emit(
+            "waiting-for-user",
+            {
+              message:
+                "Searching for someone..."
+            }
+          );
+        }
+
         return;
       }
 
+
+      console.log(
+        `[MATCH] ${matchId} | ${match.userA} <-> ${match.userB}`
+      );
+
+
+      /*
+       * ONLY HERE do we send match-found.
+       */
 
       socketA.emit(
         "match-found",
@@ -603,7 +767,8 @@ io.on("connection", (socket) => {
           matchId,
           partnerId:
             match.userBId,
-          initiator: true
+          initiator:
+            true
         }
       );
 
@@ -614,20 +779,21 @@ io.on("connection", (socket) => {
           matchId,
           partnerId:
             match.userAId,
-          initiator: false
+          initiator:
+            false
         }
       );
     }
   );
 
 
-  // ================================
+  // ======================================
   // WEBRTC CONNECTED
-  // ================================
+  // ======================================
 
   socket.on(
     "webrtc-connected",
-    () => {
+    (data = {}) => {
 
       const match =
         getActiveMatch(
@@ -639,6 +805,15 @@ io.on("connection", (socket) => {
       }
 
 
+      if (
+        data.matchId &&
+        data.matchId !==
+          match.matchId
+      ) {
+        return;
+      }
+
+
       if (!match.connectedAt) {
 
         match.connectedAt =
@@ -646,14 +821,19 @@ io.on("connection", (socket) => {
 
         match.status =
           "connected";
+
+
+        console.log(
+          `[WEBRTC] Connected: ${match.matchId}`
+        );
       }
     }
   );
 
 
-  // ================================
+  // ======================================
   // WEBRTC OFFER
-  // ================================
+  // ======================================
 
   socket.on(
     "webrtc-offer",
@@ -665,7 +845,10 @@ io.on("connection", (socket) => {
       } = data;
 
 
-      if (!matchId || !offer) {
+      if (
+        !matchId ||
+        !offer
+      ) {
         return;
       }
 
@@ -676,15 +859,14 @@ io.on("connection", (socket) => {
         );
 
 
+      if (!match) {
+        return;
+      }
+
+
       if (
-        !match ||
-        !isValidPartner(
-          socket.id,
-          getPartnerSocketId(
-            match,
-            socket.id
-          )
-        )
+        match.userA !== socket.id &&
+        match.userB !== socket.id
       ) {
         return;
       }
@@ -702,9 +884,9 @@ io.on("connection", (socket) => {
   );
 
 
-  // ================================
+  // ======================================
   // WEBRTC ANSWER
-  // ================================
+  // ======================================
 
   socket.on(
     "webrtc-answer",
@@ -716,7 +898,10 @@ io.on("connection", (socket) => {
       } = data;
 
 
-      if (!matchId || !answer) {
+      if (
+        !matchId ||
+        !answer
+      ) {
         return;
       }
 
@@ -733,13 +918,8 @@ io.on("connection", (socket) => {
 
 
       if (
-        !isValidPartner(
-          socket.id,
-          getPartnerSocketId(
-            match,
-            socket.id
-          )
-        )
+        match.userA !== socket.id &&
+        match.userB !== socket.id
       ) {
         return;
       }
@@ -757,9 +937,9 @@ io.on("connection", (socket) => {
   );
 
 
-  // ================================
+  // ======================================
   // ICE CANDIDATE
-  // ================================
+  // ======================================
 
   socket.on(
     "webrtc-ice-candidate",
@@ -791,13 +971,8 @@ io.on("connection", (socket) => {
 
 
       if (
-        !isValidPartner(
-          socket.id,
-          getPartnerSocketId(
-            match,
-            socket.id
-          )
-        )
+        match.userA !== socket.id &&
+        match.userB !== socket.id
       ) {
         return;
       }
@@ -815,18 +990,29 @@ io.on("connection", (socket) => {
   );
 
 
-  // ================================
+  // ======================================
   // NEXT USER
-  // ================================
+  // ======================================
 
   socket.on(
     "next-user",
     () => {
 
-      endMatchForSocket(
+      console.log(
+        `[NEXT] ${socket.id}`
+      );
+
+
+      endMatch(
         socket.id,
         "next-user"
       );
+
+
+      removeFromWaiting(
+        socket.id
+      );
+
 
       socket.emit(
         "ready-for-next-user"
@@ -835,18 +1021,24 @@ io.on("connection", (socket) => {
   );
 
 
-  // ================================
+  // ======================================
   // END CHAT
-  // ================================
+  // ======================================
 
   socket.on(
     "end-chat",
     () => {
 
-      endMatchForSocket(
+      console.log(
+        `[END] ${socket.id}`
+      );
+
+
+      endMatch(
         socket.id,
         "user-ended-chat"
       );
+
 
       removeFromWaiting(
         socket.id
@@ -855,20 +1047,20 @@ io.on("connection", (socket) => {
   );
 
 
-  // ================================
+  // ======================================
   // DISCONNECT
-  // ================================
+  // ======================================
 
   socket.on(
     "disconnect",
     () => {
 
       console.log(
-        `Socket disconnected: ${socket.id}`
+        `[SOCKET] Disconnected: ${socket.id}`
       );
 
 
-      endMatchForSocket(
+      endMatch(
         socket.id,
         "disconnect"
       );
@@ -887,9 +1079,9 @@ io.on("connection", (socket) => {
 });
 
 
-// ================================
+// ========================================
 // START SERVER
-// ================================
+// ========================================
 
 server.listen(
   PORT,
