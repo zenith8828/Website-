@@ -1,7 +1,7 @@
 "use strict";
 
 const {
-  LIKE_VALUE_RUPEES
+  LIKE_VALUE_COINS
 } = require("../config/constants");
 
 const USER_STATUS = {
@@ -34,7 +34,9 @@ function createUser({
     photo,
 
     validLikes: 0,
-    totalEarnings: 0,
+
+    // Coins earned from valid Likes
+    coins: 0,
 
     status: USER_STATUS.ACTIVE,
     bannedUntil: null,
@@ -88,6 +90,10 @@ function getAllUsers() {
   return Array.from(users.values());
 }
 
+// ========================================
+// ADD VALID LIKE + COINS
+// ========================================
+
 function addValidLike(userId) {
   const user = getUserById(userId);
 
@@ -96,11 +102,18 @@ function addValidLike(userId) {
   }
 
   user.validLikes += 1;
-  user.totalEarnings += LIKE_VALUE_RUPEES;
+
+  // 1 valid Like = 2 Coins
+  user.coins += LIKE_VALUE_COINS;
+
   user.updatedAt = new Date();
 
   return user;
 }
+
+// ========================================
+// BAN CHECK
+// ========================================
 
 function isUserBanned(userId) {
   const user = getUserById(userId);
@@ -113,7 +126,11 @@ function isUserBanned(userId) {
     return false;
   }
 
-  if (user.bannedUntil && new Date() >= new Date(user.bannedUntil)) {
+  // Automatic ban expiry
+  if (
+    user.bannedUntil &&
+    new Date() >= new Date(user.bannedUntil)
+  ) {
     user.status = USER_STATUS.ACTIVE;
     user.bannedUntil = null;
     user.updatedAt = new Date();
@@ -124,9 +141,17 @@ function isUserBanned(userId) {
   return true;
 }
 
+// ========================================
+// ACCESS CHECK
+// ========================================
+
 function canUserAccess(userId) {
   return !isUserBanned(userId);
 }
+
+// ========================================
+// BAN USER
+// ========================================
 
 function banUser(userId, days = 23) {
   const user = getUserById(userId);
@@ -136,7 +161,10 @@ function banUser(userId, days = 23) {
   }
 
   const bannedUntil = new Date();
-  bannedUntil.setDate(bannedUntil.getDate() + days);
+
+  bannedUntil.setDate(
+    bannedUntil.getDate() + days
+  );
 
   user.status = USER_STATUS.BANNED;
   user.bannedUntil = bannedUntil;
@@ -144,6 +172,10 @@ function banUser(userId, days = 23) {
 
   return user;
 }
+
+// ========================================
+// UNBAN USER
+// ========================================
 
 function unbanUser(userId) {
   const user = getUserById(userId);
