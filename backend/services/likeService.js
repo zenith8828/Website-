@@ -3,7 +3,7 @@
 const crypto = require("crypto");
 
 const {
-  LIKE_VALUE_RUPEES,
+  LIKE_VALUE_COINS,
   LIKE_VALIDATION_SECONDS
 } = require("../config/constants");
 
@@ -13,6 +13,11 @@ const {
 } = require("../models/user");
 
 const likes = new Map();
+
+
+// ========================================
+// CREATE PENDING LIKE
+// ========================================
 
 function createPendingLike({
   senderId,
@@ -31,6 +36,7 @@ function createPendingLike({
     );
   }
 
+  // Only one Like is allowed per chat
   if (hasLikeForMatch(matchId)) {
     throw new Error(
       "Only one Like is allowed in this chat."
@@ -56,8 +62,16 @@ function createPendingLike({
     status: "pending",
 
     createdAt: new Date(),
+
+    // Starts when receiver connection is
+    // confirmed for this Like.
     receiverConnectedAt: null,
-    validatedAt: null
+
+    validatedAt: null,
+
+    coins: 0,
+
+    updatedAt: new Date()
   };
 
   likes.set(likeId, like);
@@ -65,7 +79,11 @@ function createPendingLike({
   return like;
 }
 
-// Mark the time when receiver is still connected
+
+// ========================================
+// MARK RECEIVER CONNECTED
+// ========================================
+
 function markReceiverConnected(likeId) {
   const like = likes.get(likeId);
 
@@ -77,12 +95,26 @@ function markReceiverConnected(likeId) {
     return like;
   }
 
-  like.receiverConnectedAt = new Date();
+  /*
+   * IMPORTANT:
+   * Do NOT reset this timestamp every time
+   * the endpoint is called.
+   *
+   * The 10-second timer starts only once.
+   */
+  if (!like.receiverConnectedAt) {
+    like.receiverConnectedAt = new Date();
+    like.updatedAt = new Date();
+  }
 
   return like;
 }
 
-// Validate Like after receiver stays connected
+
+// ========================================
+// VALIDATE LIKE
+// ========================================
+
 function validateLike(
   likeId,
   receiverStillConnected = false
@@ -93,76 +125,147 @@ function validateLike(
     throw new Error("Like not found.");
   }
 
+  /*
+   * Prevent duplicate validation/reward.
+   */
   if (like.status !== "pending") {
     return like;
   }
 
+  /*
+   * Receiver must still be connected.
+   */
   if (!receiverStillConnected) {
     like.status = "invalid";
+
     like.invalidReason =
       "Receiver was not connected.";
+
     like.updatedAt = new Date();
 
     return like;
   }
 
+  /*
+   * Make sure the timer has started.
+   */
+  if (!like.receiverConnectedAt) {
+    like.receiverConnectedAt = new Date();
+    like.updatedAt = new Date();
+
+    return {
+      ...like,
+      status: "pending",
+      secondsRemaining:
+        LIKE_VALIDATION_SECONDS
+    };
+  }
+
   const now = Date.now();
 
   const connectedAt =
-    like.receiverConnectedAt
-      ? new Date(like.receiverConnectedAt).getTime()
-      : new Date(like.createdAt).getTime();
+    new Date(
+      like.receiverConnectedAt
+    ).getTime();
 
   const elapsedSeconds =
     (now - connectedAt) / 1000;
 
-  if (elapsedSeconds < LIKE_VALIDATION_SECONDS) {
+
+  /*
+   * 10-second validation period
+   */
+  if (
+    elapsedSeconds <
+    LIKE_VALIDATION_SECONDS
+  ) {
     return {
       ...like,
       status: "pending",
-      secondsRemaining: Math.ceil(
-        LIKE_VALIDATION_SECONDS - elapsedSeconds
+      secondsRemaining: Math.max(
+        0,
+        Math.ceil(
+          LIKE_VALIDATION_SECONDS -
+          elapsedSeconds
+        )
       )
     };
   }
+
+
+  // ======================================
+  // RECEIVER CHECK
+  // ======================================
 
   const receiver =
     getUserById(like.receiverId);
 
   if (!receiver) {
     like.status = "invalid";
+
     like.invalidReason =
       "Receiver user not found.";
+
     like.updatedAt = new Date();
 
     return like;
   }
 
-  addValidLike(like.receiverId);
+
+  // ======================================
+  // ADD VALID LIKE + COINS
+  // ======================================
+
+  addValidLike(
+    like.receiverId
+  );
+
 
   like.status = "valid";
+
   like.validatedAt = new Date();
-  like.earning = LIKE_VALUE_RUPEES;
+
+  // 1 Valid Like = 2 Coins
+  like.coins = LIKE_VALUE_COINS;
+
   like.updatedAt = new Date();
+
 
   return like;
 }
+
+
+// ========================================
+// GET LIKE
+// ========================================
 
 function getLikeById(likeId) {
   return likes.get(likeId) || null;
 }
 
+
+// ========================================
+// GET LIKE COINS
+// ========================================
+
 function getLikeEarning(likeId) {
   const like = getLikeById(likeId);
 
-  if (!like || like.status !== "valid") {
+  if (
+    !like ||
+    like.status !== "valid"
+  ) {
     return 0;
   }
 
-  return LIKE_VALUE_RUPEES;
+  return LIKE_VALUE_COINS;
 }
 
-// Check if any Like already exists for this match
+
+// ========================================
+// CHECK LIKE FOR MATCH
+// ========================================
+
 function hasLikeForMatch(matchId) {
   if (!matchId) {
     return false;
@@ -177,7 +280,11 @@ function hasLikeForMatch(matchId) {
   return false;
 }
 
-// Get Like status for a match
+
+// ========================================
+// GET LIKE FOR MATCH
+// ========================================
+
 function getLikeForMatch(matchId) {
   if (!matchId) {
     return null;
@@ -191,6 +298,11 @@ function getLikeForMatch(matchId) {
 
   return null;
 }
+
+
+// ========================================
+// EXPORTS
+// ========================================
 
 module.exports = {
   createPendingLike,
