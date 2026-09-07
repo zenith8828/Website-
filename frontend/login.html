@@ -2,53 +2,547 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>VizoChat - Login</title>
   <meta
-    name="description"
-    content="Login to VizoChat with Google or continue as a guest."
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
   >
 
-  <link rel="stylesheet" href="css/style.css">
+  <meta
+    name="theme-color"
+    content="#6c4df6"
+  >
+
+  <title>VizoChat - Login</title>
+
+  <meta
+    name="description"
+    content="Sign in to VizoChat with Google."
+  >
+
+  <link
+    rel="stylesheet"
+    href="css/style.css?v=13"
+  >
+
+  <style>
+    /* ========================================
+       VIZOCHAT COLORFUL LOGIN
+       ======================================== */
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+
+      color: #17152a;
+
+      background:
+        radial-gradient(
+          circle at 10% 15%,
+          rgba(255, 95, 162, 0.55),
+          transparent 30%
+        ),
+        radial-gradient(
+          circle at 90% 20%,
+          rgba(83, 190, 255, 0.55),
+          transparent 30%
+        ),
+        radial-gradient(
+          circle at 50% 100%,
+          rgba(139, 92, 246, 0.55),
+          transparent 35%
+        ),
+        linear-gradient(
+          135deg,
+          #fff0f7 0%,
+          #f2efff 48%,
+          #eaf8ff 100%
+        );
+
+      overflow-x: hidden;
+    }
+
+
+    /* ========================================
+       MAIN
+       ======================================== */
+
+    .login-page {
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      padding: 24px 16px;
+    }
+
+
+    .login-container {
+      width: 100%;
+      max-width: 430px;
+    }
+
+
+    /* ========================================
+       CARD
+       ======================================== */
+
+    .login-card {
+      position: relative;
+
+      width: 100%;
+
+      padding: 40px 30px 30px;
+
+      border-radius: 28px;
+
+      background:
+        rgba(255, 255, 255, 0.88);
+
+      border: 1px solid rgba(255, 255, 255, 0.9);
+
+      box-shadow:
+        0 25px 70px rgba(80, 52, 145, 0.20),
+        0 8px 25px rgba(0, 0, 0, 0.06);
+
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+
+      text-align: center;
+
+      overflow: hidden;
+    }
+
+
+    .login-card::before {
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+      left: 0;
+      right: 0;
+
+      height: 5px;
+
+      background:
+        linear-gradient(
+          90deg,
+          #ff4f9a,
+          #8b5cf6,
+          #4f9cff,
+          #20c9a6
+        );
+    }
+
+
+    /* ========================================
+       COLORFUL BRAND
+       ======================================== */
+
+    .login-brand {
+      display: inline-block;
+
+      margin-bottom: 18px;
+
+      font-size: 38px;
+      line-height: 1;
+
+      font-weight: 900;
+
+      letter-spacing: -1.5px;
+
+      background:
+        linear-gradient(
+          90deg,
+          #ff3d91,
+          #8b5cf6,
+          #398cff
+        );
+
+      -webkit-background-clip: text;
+      background-clip: text;
+
+      -webkit-text-fill-color: transparent;
+    }
+
+
+    .login-title {
+      margin: 0;
+
+      font-size: 27px;
+      line-height: 1.25;
+
+      font-weight: 800;
+
+      color: #18152b;
+    }
+
+
+    .login-subtitle {
+      margin: 11px 0 27px;
+
+      font-size: 15px;
+      line-height: 1.55;
+
+      color: #77738a;
+    }
+
+
+    /* ========================================
+       MESSAGE
+       ======================================== */
+
+    .login-message {
+      min-height: 0;
+
+      margin: 0 0 14px;
+
+      font-size: 14px;
+      line-height: 1.4;
+
+      color: #e53966;
+    }
+
+
+    .login-message:empty {
+      display: none;
+    }
+
+
+    /* ========================================
+       GOOGLE BUTTON
+       ======================================== */
+
+    .google-login-button {
+      position: relative;
+
+      width: 100%;
+      min-height: 56px;
+
+      display: flex;
+
+      align-items: center;
+      justify-content: center;
+
+      gap: 12px;
+
+      border: 0;
+      border-radius: 15px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #6254f5,
+          #8b4df6 48%,
+          #d946ef
+        );
+
+      color: #ffffff;
+
+      font-size: 16px;
+      font-weight: 700;
+
+      cursor: pointer;
+
+      box-shadow:
+        0 10px 25px rgba(111, 78, 246, 0.30);
+
+      transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        opacity 0.18s ease;
+    }
+
+
+    .google-login-button::after {
+      content: "";
+
+      position: absolute;
+
+      inset: 1px;
+
+      border-radius: 14px;
+
+      background:
+        linear-gradient(
+          120deg,
+          rgba(255,255,255,0.22),
+          transparent 45%
+        );
+
+      pointer-events: none;
+    }
+
+
+    .google-login-button:hover {
+      transform: translateY(-2px);
+
+      box-shadow:
+        0 14px 30px rgba(111, 78, 246, 0.38);
+    }
+
+
+    .google-login-button:active {
+      transform: translateY(1px) scale(0.99);
+    }
+
+
+    .google-login-button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+      transform: none;
+    }
+
+
+    .google-icon {
+      position: relative;
+      z-index: 1;
+
+      width: 21px;
+      height: 21px;
+
+      padding: 3px;
+
+      border-radius: 50%;
+
+      background: #ffffff;
+
+      flex: 0 0 21px;
+    }
+
+
+    #googleLoginText {
+      position: relative;
+      z-index: 1;
+    }
+
+
+    /* ========================================
+       TERMS
+       ======================================== */
+
+    .login-terms {
+      margin: 21px 5px 0;
+
+      font-size: 12px;
+      line-height: 1.55;
+
+      color: #9995a8;
+    }
+
+
+    .login-terms a {
+      color: #7564d9;
+
+      text-decoration: none;
+
+      font-weight: 600;
+    }
+
+
+    .login-terms a:hover {
+      text-decoration: underline;
+    }
+
+
+    /* ========================================
+       FOOTER
+       ======================================== */
+
+    .login-footer {
+      margin-top: 25px;
+
+      font-size: 12px;
+
+      color: #aaa6b8;
+    }
+
+
+    /* ========================================
+       DECORATIVE DOTS
+       ======================================== */
+
+    .login-decoration {
+      position: fixed;
+
+      border-radius: 50%;
+
+      pointer-events: none;
+
+      z-index: -1;
+    }
+
+
+    .login-decoration.one {
+      width: 90px;
+      height: 90px;
+
+      top: 8%;
+      left: 7%;
+
+      background:
+        linear-gradient(
+          135deg,
+          #ff65aa,
+          #ffb1d2
+        );
+
+      opacity: 0.55;
+
+      filter: blur(1px);
+    }
+
+
+    .login-decoration.two {
+      width: 65px;
+      height: 65px;
+
+      right: 8%;
+      bottom: 12%;
+
+      background:
+        linear-gradient(
+          135deg,
+          #45b8ff,
+          #8c7aff
+        );
+
+      opacity: 0.55;
+    }
+
+
+    /* ========================================
+       MOBILE
+       ======================================== */
+
+    @media (max-width: 480px) {
+
+      .login-page {
+        padding: 18px 14px;
+      }
+
+
+      .login-card {
+        padding: 34px 21px 25px;
+
+        border-radius: 24px;
+      }
+
+
+      .login-brand {
+        font-size: 34px;
+      }
+
+
+      .login-title {
+        font-size: 24px;
+      }
+
+
+      .login-subtitle {
+        font-size: 14px;
+
+        margin-bottom: 24px;
+      }
+
+
+      .google-login-button {
+        min-height: 54px;
+
+        border-radius: 14px;
+
+        font-size: 15px;
+      }
+
+    }
+
+
+    /* ========================================
+       VERY SMALL PHONES
+       ======================================== */
+
+    @media (max-width: 350px) {
+
+      .login-page {
+        padding: 12px;
+      }
+
+
+      .login-card {
+        padding-left: 17px;
+        padding-right: 17px;
+      }
+
+
+      .login-brand {
+        font-size: 31px;
+      }
+
+
+      .login-title {
+        font-size: 22px;
+      }
+
+    }
+  </style>
 </head>
+
 
 <body>
 
-  <header class="site-header">
-    <div class="container header-inner">
-
-      <a href="index.html" class="logo">
-        VizoChat
-      </a>
-
-      <nav class="main-nav">
-        <a href="index.html">Home</a>
-        <a href="chat.html">Random Chat</a>
-        <a href="leaderboard.html">Top 20</a>
-        <a href="help.html">Help</a>
-      </nav>
-
-    </div>
-  </header>
+  <div class="login-decoration one"></div>
+  <div class="login-decoration two"></div>
 
 
   <main class="login-page">
 
-    <div class="container">
+    <div class="login-container">
 
       <section class="login-card">
 
-        <h1>Welcome to VizoChat</h1>
+        <div class="login-brand">
+          VizoChat
+        </div>
+
+
+        <h1 class="login-title">
+          Welcome to VizoChat
+        </h1>
+
 
         <p class="login-subtitle">
-          Talk to someone new with random 1-to-1 video chat.
+          Connect with new people through random
+          1-to-1 video chat.
         </p>
 
 
         <div
           id="loginMessage"
           class="login-message"
+          role="alert"
+          aria-live="polite"
         ></div>
 
 
@@ -57,48 +551,57 @@
           type="button"
           class="google-login-button"
         >
-          Continue with Google
+
+          <svg
+            class="google-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+
+            <path
+              fill="#4285F4"
+              d="M21.35 12.23c0-.79-.07-1.55-.22-2.27H12v4.3h5.22a4.46 4.46 0 0 1-1.94 2.93v2.43h3.14c1.84-1.69 2.93-4.18 2.93-7.39Z"
+            />
+
+            <path
+              fill="#34A853"
+              d="M12 21.75c2.63 0 4.84-.87 6.45-2.36l-3.14-2.43c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.5A9.75 9.75 0 0 0 12 21.75Z"
+            />
+
+            <path
+              fill="#FBBC05"
+              d="M6.54 13.85a5.86 5.86 0 0 1 0-3.7v-2.5H3.3a9.75 9.75 0 0 0 0 8.7l3.24-2.5Z"
+            />
+
+            <path
+              fill="#EA4335"
+              d="M12 6.12c1.43 0 2.72.49 3.73 1.45l2.8-2.8C16.84 3.17 14.63 2.25 12 2.25a9.75 9.75 0 0 0-8.7 5.4l3.24 2.5 3.24 2.5C7.31 7.84 9.46 6.12 12 6.12Z"
+            />
+
+          </svg>
+
+
+          <span id="googleLoginText">
+            Continue with Google
+          </span>
+
         </button>
 
 
-        <div class="login-divider">
-          <span>OR</span>
-        </div>
+        <p class="login-terms">
+          By continuing, you agree to our
+          <a href="index.html">
+            Terms
+          </a>
+          and
+          <a href="index.html">
+            Privacy Policy
+          </a>.
+        </p>
 
 
-        <a
-          href="chat.html"
-          id="guestButton"
-          class="guest-button"
-        >
-          Continue as Guest
-        </a>
-
-
-        <div class="guest-limit-info">
-
-          <strong>Guest access</strong>
-
-          <p>
-            You can use up to 10 random matches as a guest.
-            After 10 matches, Google Login is required.
-          </p>
-
-        </div>
-
-
-        <div class="login-benefits">
-
-          <h2>Why create an account?</h2>
-
-          <ul>
-            <li>Save your VizoChat profile</li>
-            <li>Receive valid Likes</li>
-            <li>Earn ₹2 for every valid Like</li>
-            <li>Appear on the Top 20 leaderboard</li>
-            <li>Continue chatting after the guest limit</li>
-          </ul>
-
+        <div class="login-footer">
+          © <span id="currentYear"></span> VizoChat
         </div>
 
       </section>
@@ -108,47 +611,25 @@
   </main>
 
 
-  <footer class="site-footer">
+  <script src="js/app.js?v=13"></script>
+  <script src="js/auth.js?v=13"></script>
 
-    <div class="container">
-
-      <p>
-        Need help?
-        <a
-          href="https://t.me/zenithvizo"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Telegram Support @zenithvizo
-        </a>
-      </p>
-
-      <p>
-        &copy;
-        <span id="currentYear"></span>
-        VizoChat. All rights reserved.
-      </p>
-
-    </div>
-
-  </footer>
-
-
-  <script src="js/app.js"></script>
-  <script src="js/auth.js"></script>
 
   <script>
     "use strict";
+
 
     const googleLoginButton =
       document.getElementById(
         "googleLoginButton"
       );
 
-    const guestButton =
+
+    const googleLoginText =
       document.getElementById(
-        "guestButton"
+        "googleLoginText"
       );
+
 
     const loginMessage =
       document.getElementById(
@@ -156,25 +637,60 @@
       );
 
 
-    function showLoginMessage(message) {
-      if (loginMessage) {
-        loginMessage.textContent = message;
-      }
+    const currentYear =
+      document.getElementById(
+        "currentYear"
+      );
+
+
+    // ========================================
+    // YEAR
+    // ========================================
+
+    if (currentYear) {
+      currentYear.textContent =
+        new Date().getFullYear();
     }
 
 
-    // If already logged in, go directly to profile.
+    // ========================================
+    // LOGIN MESSAGE
+    // ========================================
+
+    function showLoginMessage(message) {
+
+      if (!loginMessage) {
+        return;
+      }
+
+      loginMessage.textContent =
+        message || "";
+    }
+
+
+    // ========================================
+    // ALREADY LOGGED IN
+    // ========================================
+
     if (
       window.VizoAuth &&
+      typeof window.VizoAuth.isLoggedIn ===
+        "function" &&
       window.VizoAuth.isLoggedIn()
     ) {
-      window.location.href =
-        "profile.html";
+
+      window.location.replace(
+        "profile.html"
+      );
     }
 
 
-    // Google Login
+    // ========================================
+    // GOOGLE LOGIN
+    // ========================================
+
     if (googleLoginButton) {
+
       googleLoginButton.addEventListener(
         "click",
         () => {
@@ -182,73 +698,64 @@
           googleLoginButton.disabled =
             true;
 
-          googleLoginButton.textContent =
-            "Connecting...";
 
-          showLoginMessage(
-            "Opening Google Login..."
-          );
+          if (googleLoginText) {
+            googleLoginText.textContent =
+              "Connecting to Google...";
+          }
+
+
+          showLoginMessage("");
+
 
           if (
             window.VizoAuth &&
             typeof window.VizoAuth.startGoogleLogin ===
               "function"
           ) {
+
             window.VizoAuth.startGoogleLogin();
-          } else {
-            googleLoginButton.disabled =
-              false;
 
-            googleLoginButton.textContent =
+            return;
+          }
+
+
+          googleLoginButton.disabled =
+            false;
+
+
+          if (googleLoginText) {
+            googleLoginText.textContent =
               "Continue with Google";
-
-            showLoginMessage(
-              "Login service is not available."
-            );
           }
+
+
+          showLoginMessage(
+            "Login service is not available. Please try again."
+          );
         }
       );
     }
 
 
-    // Guest Login
-    if (guestButton) {
-      guestButton.addEventListener(
-        "click",
-        (event) => {
+    // ========================================
+    // GOOGLE LOGIN ERROR
+    // ========================================
 
-          if (
-            window.VizoAuth &&
-            !window.VizoAuth.canGuestStartMatch()
-          ) {
-            event.preventDefault();
-
-            showLoginMessage(
-              "Your 10 guest matches are finished. Please login with Google."
-            );
-          }
-
-        }
+    const params =
+      new URLSearchParams(
+        window.location.search
       );
+
+
+    const error =
+      params.get("error");
+
+
+    if (error) {
+      showLoginMessage(error);
     }
 
-
-    // Show guest status
-    if (
-      window.VizoAuth &&
-      window.VizoAuth.isGuest()
-    ) {
-
-      const remaining =
-        window.VizoAuth.getGuestMatchesRemaining();
-
-      if (remaining <= 0) {
-        showLoginMessage(
-          "Guest limit reached. Please login with Google."
-        );
-      }
-
-    }
   </script>
 
 </body>
