@@ -1,27 +1,9 @@
 "use strict";
 
-/*
- * VizoChat - Random 1-to-1 Video Chat
- *
- * Flow:
- * Camera/Mic Permission
- *        ↓
- * Searching
- *        ↓
- * Match Found
- *        ↓
- * Connecting
- *        ↓
- * REAL WebRTC Connected
- */
+const VIZO_API = "https://website-r746.onrender.com/api";
+const VIZO_SOCKET = "https://website-r746.onrender.com";
 
-const API_BASE =
-  window.VizoAuth?.VIZOCHAT_API ||
-  "https://website-r746.onrender.com/api";
-
-const SOCKET_URL = "https://website-r746.onrender.com";
-
-const CHAT_JS_VERSION = "2026-09-07-FINAL";
+const GUEST_LIMIT = 10;
 
 let socket = null;
 let localStream = null;
@@ -30,647 +12,125 @@ let peerConnection = null;
 let currentMatchId = null;
 let currentPartnerId = null;
 
-let isInitiator = false;
-let isSearching = false;
-let isConnected = false;
-
 let socketRegistered = false;
-let initializationStarted = false;
+let searching = false;
+let connected = false;
 
 let matchStartedAt = null;
 let timerInterval = null;
 
 let pendingIceCandidates = [];
 
-const ICE_SERVERS = {
-  iceServers: [
-    {
-      urls: [
-        "stun:stun.l.google.com:19302",
-        "stun:stun1.l.google.com:19302"
-      ]
-    }
-  ]
-};
+
+/* =========================
+   ELEMENTS
+========================= */
+
+function $(id) {
+  return document.getElementById(id);
+}
 
 
-/* =========================================================
-   DOM
-========================================================= */
-
-const statusElement =
-  document.getElementById("status");
-
-const timerElement =
-  document.getElementById("timer");
-
-const guestCounterElement =
-  document.getElementById("guestCounter");
-
-const localVideo =
-  document.getElementById("localVideo");
-
-const remoteVideo =
-  document.getElementById("remoteVideo");
-
-const cameraButton =
-  document.getElementById("cameraButton");
-
-const micButton =
-  document.getElementById("micButton");
-
-const likeButton =
-  document.getElementById("likeButton");
-
-const reportButton =
-  document.getElementById("reportButton");
-
-const nextButton =
-  document.getElementById("nextButton");
-
-const localPlaceholder =
-  document.getElementById("localPlaceholder");
-
-const remotePlaceholder =
-  document.getElementById("remotePlaceholder");
-
-const statusText =
-  document.getElementById("statusText");
-
-const statusDot =
-  document.getElementById("statusDot");
-
-
-/* =========================================================
-   UI
-========================================================= */
+/* =========================
+   STATUS
+========================= */
 
 function setStatus(message) {
-  console.log("[VizoChat STATUS]", message);
+  const box = $("status");
 
-  if (statusElement) {
-    statusElement.textContent = message;
+  if (box) {
+    box.textContent = message;
   }
 
-  if (statusText) {
-    statusText.textContent = message;
-  }
-
-  const connected =
-    message.startsWith("Connected!");
-
-  if (statusDot) {
-    statusDot.classList.toggle(
-      "connected",
-      connected
-    );
-  }
+  console.log("[VizoChat]", message);
 }
 
 
-function setTimer(seconds) {
-  if (!timerElement) return;
+/* =========================
+   USER
+========================= */
 
-  const safeSeconds =
-    Math.max(0, Number(seconds) || 0);
-
-  const minutes =
-    Math.floor(safeSeconds / 60);
-
-  const remainingSeconds =
-    safeSeconds % 60;
-
-  timerElement.textContent =
-    String(minutes).padStart(2, "0") +
-    ":" +
-    String(remainingSeconds).padStart(2, "0");
-}
-
-
-function resetTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+function getUserId() {
+  if (
+    window.VizoAuth &&
+    typeof window.VizoAuth.getUserId === "function"
+  ) {
+    return window.VizoAuth.getUserId();
   }
 
-  matchStartedAt = null;
+  let id = localStorage.getItem("vizochat_guest_id");
 
-  setTimer(0);
+  if (!id) {
+    id =
+      "guest_" +
+      Date.now() +
+      "_" +
+      Math.random().toString(36).substring(2, 10);
+
+    localStorage.setItem("vizochat_guest_id", id);
+  }
+
+  return id;
 }
 
 
-function startTimer() {
-  resetTimer();
+function getUserType() {
+  if (
+    window.VizoAuth &&
+    typeof window.VizoAuth.isLoggedIn === "function" &&
+    window.VizoAuth.isLoggedIn()
+  ) {
+    return "user";
+  }
 
-  matchStartedAt = Date.now();
+  return "guest";
+}
 
-  timerInterval = setInterval(() => {
-    if (!matchStartedAt) return;
 
-    const elapsed =
-      Math.floor(
-        (Date.now() - matchStartedAt) / 1000
-      );
+/* =========================
+   GUEST MATCH COUNT
+========================= */
 
-    setTimer(elapsed);
-  }, 1000);
+function getGuestMatches() {
+  return parseInt(
+    localStorage.getItem("vizochat_guest_matches") || "0",
+    10
+  );
 }
 
 
 function updateGuestCounter() {
-  if (!guestCounterElement) return;
+  const box = $("guestCounter");
 
-  if (
-    window.VizoAuth &&
-    window.VizoAuth.isLoggedIn()
-  ) {
-    guestCounterElement.textContent =
-      "Logged in";
+  if (!box) return;
 
-    return;
-  }
+  const count = getGuestMatches();
 
-  const used =
-    window.VizoAuth?.getGuestMatchCount?.() || 0;
-
-  const limit =
-    window.VizoAuth?.GUEST_MATCH_LIMIT || 10;
-
-  guestCounterElement.textContent =
-    `${used}/${limit} matches used`;
+  box.textContent =
+    "Guest Matches: " +
+    count +
+    "/" +
+    GUEST_LIMIT;
 }
 
 
-function clearRemoteVideo() {
-  if (remoteVideo) {
-    remoteVideo.srcObject = null;
-  }
+function increaseGuestMatch() {
+  if (getUserType() !== "guest") return;
 
-  if (remotePlaceholder) {
-    remotePlaceholder.style.display = "flex";
-  }
+  const count = getGuestMatches() + 1;
+
+  localStorage.setItem(
+    "vizochat_guest_matches",
+    String(count)
+  );
+
+  updateGuestCounter();
 }
 
 
-function showLocalVideo() {
-  if (localPlaceholder) {
-    localPlaceholder.style.display = "none";
-  }
-}
-
-
-function showRemoteVideo() {
-  if (remotePlaceholder) {
-    remotePlaceholder.style.display = "none";
-  }
-}
-
-
-function disableChatControls() {
-  if (likeButton) {
-    likeButton.disabled = true;
-  }
-
-  if (reportButton) {
-    reportButton.disabled = true;
-  }
-}
-
-
-function enableChatControls() {
-  if (likeButton) {
-    likeButton.disabled = false;
-  }
-
-  if (reportButton) {
-    reportButton.disabled = false;
-  }
-}
-
-
-function resetChatUI() {
-  isConnected = false;
-
-  resetTimer();
-
-  clearRemoteVideo();
-
-  disableChatControls();
-}
-
-
-/* =========================================================
-   SOCKET.IO
-========================================================= */
-
-function loadSocketIO() {
-  return new Promise((resolve, reject) => {
-
-    if (window.io) {
-      resolve();
-
-      return;
-    }
-
-    const existingScript =
-      document.querySelector(
-        'script[src*="socket.io"]'
-      );
-
-    if (existingScript) {
-
-      existingScript.addEventListener(
-        "load",
-        () => resolve(),
-        { once: true }
-      );
-
-      existingScript.addEventListener(
-        "error",
-        () => reject(
-          new Error(
-            "Unable to load video chat service."
-          )
-        ),
-        { once: true }
-      );
-
-      return;
-    }
-
-    const script =
-      document.createElement("script");
-
-    script.src =
-      "https://cdn.socket.io/4.8.1/socket.io.min.js";
-
-    script.onload = () => {
-      resolve();
-    };
-
-    script.onerror = () => {
-      reject(
-        new Error(
-          "Unable to load video chat service."
-        )
-      );
-    };
-
-    document.head.appendChild(script);
-  });
-}
-
-
-async function connectSocket() {
-
-  await loadSocketIO();
-
-  if (socket) {
-
-    if (socket.connected) {
-      return socket;
-    }
-
-    try {
-      socket.connect();
-
-      return socket;
-
-    } catch (error) {
-      console.error(
-        "Socket reconnect error:",
-        error
-      );
-    }
-  }
-
-  setStatus(
-    "Connecting to VizoChat server..."
-  );
-
-  socket =
-    window.io(
-      SOCKET_URL,
-      {
-        transports: [
-          "websocket",
-          "polling"
-        ],
-
-        reconnection: true,
-
-        reconnectionAttempts: 10,
-
-        reconnectionDelay: 1000,
-
-        timeout: 10000
-      }
-    );
-
-  setupSocketEvents();
-
-  return socket;
-}
-
-
-/* =========================================================
-   SOCKET EVENTS
-========================================================= */
-
-function setupSocketEvents() {
-
-  if (!socket) return;
-
-
-  socket.on(
-    "connect",
-    () => {
-
-      console.log(
-        "[VizoChat] Socket connected:",
-        socket.id
-      );
-
-      socketRegistered = false;
-
-      registerUser();
-    }
-  );
-
-
-  socket.on(
-    "connect_error",
-    (error) => {
-
-      console.error(
-        "[VizoChat] Socket connection error:",
-        error
-      );
-
-      setStatus(
-        "Unable to connect to VizoChat server."
-      );
-    }
-  );
-
-
-  socket.on(
-    "waiting-for-user",
-    (data) => {
-
-      console.log(
-        "[VizoChat] Waiting:",
-        data
-      );
-
-      isSearching = true;
-
-      isConnected = false;
-
-      resetTimer();
-
-      clearRemoteVideo();
-
-      disableChatControls();
-
-      setStatus(
-        "Searching for someone..."
-      );
-    }
-  );
-
-
-  socket.on(
-    "match-found",
-    async (data) => {
-
-      console.log(
-        "[VizoChat] Match found:",
-        data
-      );
-
-      await handleMatchFound(data);
-    }
-  );
-
-
-  socket.on(
-    "webrtc-offer",
-    async (data) => {
-
-      console.log(
-        "[VizoChat] WebRTC offer received."
-      );
-
-      await handleOffer(data);
-    }
-  );
-
-
-  socket.on(
-    "webrtc-answer",
-    async (data) => {
-
-      console.log(
-        "[VizoChat] WebRTC answer received."
-      );
-
-      await handleAnswer(data);
-    }
-  );
-
-
-  socket.on(
-    "webrtc-ice-candidate",
-    async (data) => {
-
-      await handleIceCandidate(data);
-    }
-  );
-
-
-  socket.on(
-    "partner-disconnected",
-    () => {
-
-      console.log(
-        "[VizoChat] Partner disconnected."
-      );
-
-      cleanupPeerConnection();
-
-      currentMatchId = null;
-
-      currentPartnerId = null;
-
-      isInitiator = false;
-
-      isConnected = false;
-
-      isSearching = false;
-
-      resetTimer();
-
-      clearRemoteVideo();
-
-      disableChatControls();
-
-      setStatus(
-        "Stranger disconnected. Searching for someone new..."
-      );
-
-      setTimeout(() => {
-
-        if (!isSearching) {
-          startSearching();
-        }
-
-      }, 1000);
-    }
-  );
-
-
-  socket.on(
-    "guest-limit-reached",
-    () => {
-
-      isSearching = false;
-
-      isConnected = false;
-
-      resetTimer();
-
-      disableChatControls();
-
-      setStatus(
-        "Your 10 guest matches are finished. Please login with Google."
-      );
-    }
-  );
-
-
-  socket.on(
-    "match-error",
-    (data) => {
-
-      console.error(
-        "[VizoChat] Match error:",
-        data
-      );
-
-      isSearching = false;
-
-      isConnected = false;
-
-      resetTimer();
-
-      setStatus(
-        data?.message ||
-        "Unable to find a match."
-      );
-    }
-  );
-
-
-  socket.on(
-    "server-error",
-    (data) => {
-
-      console.error(
-        "[VizoChat] Server error:",
-        data
-      );
-
-      setStatus(
-        data?.message ||
-        "VizoChat server error."
-      );
-    }
-  );
-
-
-  socket.on(
-    "disconnect",
-    (reason) => {
-
-      console.log(
-        "[VizoChat] Socket disconnected:",
-        reason
-      );
-
-      socketRegistered = false;
-
-      isSearching = false;
-
-      isConnected = false;
-
-      resetTimer();
-
-      setStatus(
-        "Disconnected from VizoChat server."
-      );
-    }
-  );
-}
-
-
-/* =========================================================
-   REGISTER USER
-========================================================= */
-
-function registerUser() {
-
-  if (
-    !socket ||
-    !socket.connected
-  ) {
-    return;
-  }
-
-  if (socketRegistered) {
-    return;
-  }
-
-  const userId =
-    window.VizoAuth?.getUserId?.() ||
-    `guest-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 8)}`;
-
-  const userType =
-    window.VizoAuth?.getUserType?.() ||
-    "guest";
-
-  socket.emit(
-    "register-user",
-    {
-      userId,
-      userType,
-
-      /*
-       * Compatibility with backend versions
-       * that expect isGuest.
-       */
-      isGuest:
-        userType === "guest"
-    }
-  );
-
-  socketRegistered = true;
-
-  console.log(
-    "[VizoChat] User registered:",
-    {
-      userId,
-      userType
-    }
-  );
-}
-
-
-/* =========================================================
+/* =========================
    CAMERA + MICROPHONE
-========================================================= */
+========================= */
 
 async function requestCameraAndMic() {
 
@@ -678,282 +138,407 @@ async function requestCameraAndMic() {
     "Requesting camera and microphone permission..."
   );
 
-  if (
-    !window.isSecureContext
-  ) {
-
-    throw new Error(
-      "Camera and microphone require a secure HTTPS connection."
+  if (!window.isSecureContext) {
+    setStatus(
+      "Camera/Mic requires HTTPS. Please use the VizoChat HTTPS link."
     );
+    return false;
   }
 
   if (
     !navigator.mediaDevices ||
     !navigator.mediaDevices.getUserMedia
   ) {
-
-    throw new Error(
-      "Camera and microphone are not supported by this browser."
+    setStatus(
+      "Your browser does not support camera/microphone access."
     );
+    return false;
   }
 
   try {
 
     localStream =
-      await navigator.mediaDevices.getUserMedia(
-        {
-          video: {
-            facingMode: "user"
-          },
+      await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
 
-          audio: true
-        }
-      );
+    const video = $("localVideo");
 
-    console.log(
-      "[VizoChat] Camera and microphone permission granted."
-    );
-
-    if (localVideo) {
-
-      localVideo.srcObject =
-        localStream;
-
-      localVideo.muted = true;
-
-      localVideo.playsInline = true;
+    if (video) {
+      video.srcObject = localStream;
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
 
       try {
-        await localVideo.play();
-      } catch (error) {
-        console.warn(
-          "Local video autoplay blocked:",
-          error
-        );
+        await video.play();
+      } catch (e) {
+        console.log("Local video play:", e);
       }
     }
 
-    showLocalVideo();
+    const placeholder = $("localPlaceholder");
 
-    updateMediaButtons();
+    if (placeholder) {
+      placeholder.classList.add("hidden");
+    }
 
-    return localStream;
+    setStatus(
+      "Camera and microphone ready. Connecting..."
+    );
+
+    return true;
 
   } catch (error) {
 
     console.error(
-      "[VizoChat] Media error:",
+      "getUserMedia error:",
       error
     );
 
-    if (
-      error.name ===
-      "NotAllowedError"
-    ) {
+    if (error.name === "NotAllowedError") {
 
-      throw new Error(
-        "Camera and microphone permission was denied. Please allow Camera and Microphone for VizoChat and reload the page."
+      setStatus(
+        "Camera/Mic permission denied. Browser settings me Camera aur Microphone Allow karo."
+      );
+
+    } else if (error.name === "NotFoundError") {
+
+      setStatus(
+        "Camera ya microphone device nahi mila."
+      );
+
+    } else if (error.name === "NotReadableError") {
+
+      setStatus(
+        "Camera/Mic kisi aur app me use ho raha hai."
+      );
+
+    } else {
+
+      setStatus(
+        "Camera/Mic error: " +
+        error.message
       );
     }
 
-    if (
-      error.name ===
-      "NotFoundError"
-    ) {
-
-      throw new Error(
-        "Camera or microphone was not found on this device."
-      );
-    }
-
-    if (
-      error.name ===
-      "NotReadableError"
-    ) {
-
-      throw new Error(
-        "Camera or microphone is already being used by another app."
-      );
-    }
-
-    throw new Error(
-      "Unable to access camera and microphone."
-    );
+    return false;
   }
 }
 
 
-/* =========================================================
-   WEBRTC
-========================================================= */
+/* =========================
+   SOCKET CONNECTION
+========================= */
+
+function connectSocket() {
+
+  return new Promise(function(resolve, reject) {
+
+    if (socket && socket.connected) {
+      resolve(socket);
+      return;
+    }
+
+    if (!window.io) {
+
+      setStatus(
+        "Socket.IO load nahi hua. Please reload."
+      );
+
+      reject(
+        new Error("Socket.IO unavailable")
+      );
+
+      return;
+    }
+
+    socket = window.io(VIZO_SOCKET, {
+      transports: ["websocket", "polling"],
+      reconnection: true
+    });
+
+
+    socket.on("connect", function() {
+
+      console.log(
+        "Socket connected:",
+        socket.id
+      );
+
+      registerUser();
+
+      resolve(socket);
+    });
+
+
+    socket.on("connect_error", function(error) {
+
+      console.error(
+        "Socket connection error:",
+        error
+      );
+
+      setStatus(
+        "VizoChat server se connection nahi ho raha."
+      );
+
+      reject(error);
+    });
+
+
+    socket.on("disconnect", function(reason) {
+
+      console.log(
+        "Socket disconnected:",
+        reason
+      );
+
+      if (!connected) {
+        setStatus(
+          "Server connection lost. Reconnecting..."
+        );
+      }
+    });
+
+
+    socket.on(
+      "match-found",
+      handleMatchFound
+    );
+
+
+    socket.on(
+      "webrtc-offer",
+      handleWebRTCOffer
+    );
+
+
+    socket.on(
+      "webrtc-answer",
+      handleWebRTCAnswer
+    );
+
+
+    socket.on(
+      "webrtc-ice-candidate",
+      handleRemoteIceCandidate
+    );
+
+
+    socket.on(
+      "webrtc-connected",
+      function() {
+        console.log(
+          "Partner WebRTC connected"
+        );
+      }
+    );
+  });
+}
+
+
+/* =========================
+   REGISTER USER
+========================= */
+
+function registerUser() {
+
+  if (!socket || !socket.connected) {
+    return;
+  }
+
+  if (socketRegistered) {
+    return;
+  }
+
+  const userId = getUserId();
+  const userType = getUserType();
+
+  socket.emit("register-user", {
+
+    userId: userId,
+
+    userType: userType,
+
+    isGuest:
+      userType === "guest"
+
+  });
+
+  socketRegistered = true;
+
+  console.log(
+    "Registered:",
+    userId,
+    userType
+  );
+}
+
+
+/* =========================
+   PEER CONNECTION
+========================= */
 
 function createPeerConnection() {
 
-  cleanupPeerConnection();
+  if (peerConnection) {
+    try {
+      peerConnection.close();
+    } catch (e) {}
+  }
 
   pendingIceCandidates = [];
 
   peerConnection =
-    new RTCPeerConnection(
-      ICE_SERVERS
-    );
+    new RTCPeerConnection({
 
-  console.log(
-    "[VizoChat] RTCPeerConnection created."
-  );
+      iceServers: [
+
+        {
+          urls:
+            "stun:stun.l.google.com:19302"
+        },
+
+        {
+          urls:
+            "stun:stun1.l.google.com:19302"
+        }
+
+      ]
+    });
 
 
   if (localStream) {
 
     localStream
       .getTracks()
-      .forEach((track) => {
+      .forEach(function(track) {
 
         peerConnection.addTrack(
           track,
           localStream
         );
+
       });
   }
 
 
   peerConnection.ontrack =
-    (event) => {
+    function(event) {
 
       console.log(
-        "[VizoChat] Remote track received."
+        "Remote track received"
       );
 
-      const stream =
-        event.streams &&
-        event.streams[0];
+      const video =
+        $("remoteVideo");
+
+      if (!video) return;
 
       if (
-        stream &&
-        remoteVideo
+        event.streams &&
+        event.streams[0]
       ) {
 
-        remoteVideo.srcObject =
-          stream;
+        video.srcObject =
+          event.streams[0];
 
-        showRemoteVideo();
+      } else {
 
-        remoteVideo
-          .play()
-          .catch((error) => {
+        let stream =
+          video.srcObject;
 
-            console.warn(
-              "Remote video autoplay blocked:",
-              error
-            );
-          });
+        if (!stream) {
+          stream =
+            new MediaStream();
+
+          video.srcObject =
+            stream;
+        }
+
+        stream.addTrack(
+          event.track
+        );
+      }
+
+      video.muted = false;
+      video.autoplay = true;
+      video.playsInline = true;
+
+      video.play().catch(function(e) {
+        console.log(
+          "Remote video play:",
+          e
+        );
+      });
+
+      const placeholder =
+        $("remotePlaceholder");
+
+      if (placeholder) {
+        placeholder.classList.add(
+          "hidden"
+        );
       }
     };
 
 
   peerConnection.onicecandidate =
-    (event) => {
+    function(event) {
 
       if (
-        !event.candidate ||
-        !socket ||
-        !socket.connected ||
-        !currentMatchId
+        event.candidate &&
+        socket &&
+        socket.connected
       ) {
-        return;
+
+        socket.emit(
+          "webrtc-ice-candidate",
+          {
+            matchId:
+              currentMatchId,
+
+            candidate:
+              event.candidate
+          }
+        );
       }
-
-      socket.emit(
-        "webrtc-ice-candidate",
-        {
-          matchId:
-            currentMatchId,
-
-          candidate:
-            event.candidate
-        }
-      );
     };
 
 
   peerConnection.onconnectionstatechange =
-    () => {
-
-      if (!peerConnection) {
-        return;
-      }
+    function() {
 
       const state =
         peerConnection.connectionState;
 
       console.log(
-        "[VizoChat] WebRTC connection state:",
+        "WebRTC state:",
         state
       );
 
-
-      if (
-        state === "connected"
-      ) {
+      if (state === "connected") {
 
         handleWebRTCConnected();
 
-        return;
-      }
-
-
-      if (
+      } else if (
         state === "failed"
       ) {
 
-        isConnected = false;
-
-        resetTimer();
-
         setStatus(
-          "Video connection failed. Press Next to try another person."
+          "Video connection failed. Press Next and try again."
         );
 
-        return;
-      }
-
-
-      if (
+      } else if (
         state === "disconnected"
       ) {
-
-        isConnected = false;
 
         setStatus(
           "Video connection interrupted..."
         );
-
-        return;
       }
-
-
-      if (
-        state === "closed"
-      ) {
-
-        isConnected = false;
-
-        resetTimer();
-      }
-    };
-
-
-  peerConnection.oniceconnectionstatechange =
-    () => {
-
-      if (!peerConnection) {
-        return;
-      }
-
-      console.log(
-        "[VizoChat] ICE state:",
-        peerConnection.iceConnectionState
-      );
     };
 
 
@@ -961,201 +546,97 @@ function createPeerConnection() {
 }
 
 
-/* =========================================================
-   ICE QUEUE
-========================================================= */
-
-async function addPendingIceCandidates() {
-
-  if (!peerConnection) {
-    return;
-  }
-
-  if (
-    !peerConnection.remoteDescription ||
-    !peerConnection.remoteDescription.type
-  ) {
-    return;
-  }
-
-  const candidates =
-    [...pendingIceCandidates];
-
-  pendingIceCandidates = [];
-
-  for (
-    const candidate of candidates
-  ) {
-
-    try {
-
-      await peerConnection.addIceCandidate(
-        new RTCIceCandidate(candidate)
-      );
-
-    } catch (error) {
-
-      console.error(
-        "[VizoChat] Queued ICE error:",
-        error
-      );
-    }
-  }
-}
-
-
-/* =========================================================
+/* =========================
    MATCH FOUND
-========================================================= */
+========================= */
 
 async function handleMatchFound(data) {
 
-  if (!data) {
-    return;
-  }
+  console.log(
+    "MATCH FOUND:",
+    data
+  );
+
+  searching = false;
 
   currentMatchId =
     data.matchId ||
-    data.matchID ||
+    data.id ||
     null;
 
   currentPartnerId =
     data.partnerId ||
-    data.otherUserId ||
-    data.partnerSocketId ||
+    data.userId ||
+    data.remoteUserId ||
     null;
-
-  isInitiator =
-    data.initiator === true;
-
-  isSearching = false;
-
-  isConnected = false;
-
-  resetTimer();
-
-  clearRemoteVideo();
-
-  disableChatControls();
-
-
-  if (!currentMatchId) {
-
-    console.error(
-      "[VizoChat] Match received without matchId."
-    );
-
-    setStatus(
-      "Invalid match received. Press Next."
-    );
-
-    return;
-  }
-
 
   setStatus(
     "Match found. Connecting video..."
   );
 
-  console.log(
-    "[VizoChat] MATCH:",
-    {
-      matchId:
-        currentMatchId,
 
-      partnerId:
-        currentPartnerId,
+  const remotePlaceholder =
+    $("remotePlaceholder");
 
-      initiator:
-        isInitiator
-    }
-  );
+  if (remotePlaceholder) {
+    remotePlaceholder.textContent =
+      "Connecting...";
+    remotePlaceholder.classList.remove(
+      "hidden"
+    );
+  }
 
 
   createPeerConnection();
 
 
-  if (isInitiator) {
-
-    await createAndSendOffer();
-  }
-}
+  const initiator =
+    data.initiator === true ||
+    data.isInitiator === true;
 
 
-/* =========================================================
-   OFFER
-========================================================= */
+  if (initiator) {
 
-async function createAndSendOffer() {
+    try {
 
-  if (
-    !peerConnection ||
-    !socket ||
-    !socket.connected ||
-    !currentMatchId
-  ) {
-    return;
-  }
+      const offer =
+        await peerConnection.createOffer();
 
-  try {
+      await peerConnection.setLocalDescription(
+        offer
+      );
 
-    setStatus(
-      "Connecting video..."
-    );
-
-    const offer =
-      await peerConnection.createOffer(
+      socket.emit(
+        "webrtc-offer",
         {
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true
+          matchId:
+            currentMatchId,
+
+          offer:
+            peerConnection.localDescription
         }
       );
 
-    await peerConnection.setLocalDescription(
-      offer
-    );
+    } catch (error) {
 
-    socket.emit(
-      "webrtc-offer",
-      {
-        matchId:
-          currentMatchId,
+      console.error(
+        "Offer error:",
+        error
+      );
 
-        offer:
-          peerConnection.localDescription
-      }
-    );
-
-    console.log(
-      "[VizoChat] WebRTC offer sent."
-    );
-
-  } catch (error) {
-
-    console.error(
-      "[VizoChat] Offer error:",
-      error
-    );
-
-    setStatus(
-      "Unable to start video connection."
-    );
+      setStatus(
+        "Video connection start nahi ho saka."
+      );
+    }
   }
 }
 
 
-/* =========================================================
-   RECEIVE OFFER
-========================================================= */
+/* =========================
+   OFFER
+========================= */
 
-async function handleOffer(data) {
-
-  if (
-    !data ||
-    !data.offer
-  ) {
-    return;
-  }
+async function handleWebRTCOffer(data) {
 
   if (!peerConnection) {
     createPeerConnection();
@@ -1163,18 +644,13 @@ async function handleOffer(data) {
 
   try {
 
-    setStatus(
-      "Connecting video..."
-    );
-
     await peerConnection.setRemoteDescription(
       new RTCSessionDescription(
         data.offer
       )
     );
 
-    await addPendingIceCandidates();
-
+    await processPendingIceCandidates();
 
     const answer =
       await peerConnection.createAnswer();
@@ -1183,54 +659,38 @@ async function handleOffer(data) {
       answer
     );
 
+    socket.emit(
+      "webrtc-answer",
+      {
+        matchId:
+          currentMatchId,
 
-    if (
-      socket &&
-      socket.connected
-    ) {
-
-      socket.emit(
-        "webrtc-answer",
-        {
-          matchId:
-            data.matchId ||
-            currentMatchId,
-
-          answer:
-            peerConnection.localDescription
-        }
-      );
-    }
-
-    console.log(
-      "[VizoChat] WebRTC answer sent."
+        answer:
+          peerConnection.localDescription
+      }
     );
 
   } catch (error) {
 
     console.error(
-      "[VizoChat] Offer handling error:",
+      "Offer handling error:",
       error
     );
 
     setStatus(
-      "Unable to connect video."
+      "Video connection error."
     );
   }
 }
 
 
-/* =========================================================
-   RECEIVE ANSWER
-========================================================= */
+/* =========================
+   ANSWER
+========================= */
 
-async function handleAnswer(data) {
+async function handleWebRTCAnswer(data) {
 
-  if (
-    !data ||
-    !data.answer ||
-    !peerConnection
-  ) {
+  if (!peerConnection) {
     return;
   }
 
@@ -1242,40 +702,31 @@ async function handleAnswer(data) {
       )
     );
 
-    await addPendingIceCandidates();
-
-    console.log(
-      "[VizoChat] WebRTC answer applied."
-    );
+    await processPendingIceCandidates();
 
   } catch (error) {
 
     console.error(
-      "[VizoChat] Answer error:",
+      "Answer error:",
       error
     );
   }
 }
 
 
-/* =========================================================
-   RECEIVE ICE
-========================================================= */
+/* =========================
+   ICE
+========================= */
 
-async function handleIceCandidate(data) {
+async function handleRemoteIceCandidate(data) {
 
-  if (
-    !data ||
-    !data.candidate
-  ) {
+  if (!data.candidate) {
     return;
   }
 
-
   if (
     !peerConnection ||
-    !peerConnection.remoteDescription ||
-    !peerConnection.remoteDescription.type
+    !peerConnection.remoteDescription
   ) {
 
     pendingIceCandidates.push(
@@ -1284,7 +735,6 @@ async function handleIceCandidate(data) {
 
     return;
   }
-
 
   try {
 
@@ -1297,49 +747,85 @@ async function handleIceCandidate(data) {
   } catch (error) {
 
     console.error(
-      "[VizoChat] ICE candidate error:",
+      "ICE error:",
       error
     );
   }
 }
 
 
-/* =========================================================
-   REAL WEBRTC CONNECTED
-========================================================= */
+async function processPendingIceCandidates() {
 
-function handleWebRTCConnected() {
-
-  if (isConnected) {
+  if (!peerConnection) {
     return;
   }
 
-  isConnected = true;
+  const list =
+    pendingIceCandidates;
 
-  isSearching = false;
+  pendingIceCandidates = [];
+
+  for (
+    const candidate of list
+  ) {
+
+    try {
+
+      await peerConnection.addIceCandidate(
+        new RTCIceCandidate(
+          candidate
+        )
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Pending ICE error:",
+        error
+      );
+    }
+  }
+}
 
 
-  /*
-   * IMPORTANT:
-   * "Connected" is shown ONLY after
-   * RTCPeerConnection says connected.
-   */
+/* =========================
+   WEBRTC CONNECTED
+========================= */
+
+function handleWebRTCConnected() {
+
+  if (connected) {
+    return;
+  }
+
+  connected = true;
+  searching = false;
+
+  increaseGuestMatch();
 
   setStatus(
     "Connected! You are now chatting with someone new."
   );
 
-
   startTimer();
 
+  const likeBtn =
+    $("likeBtn");
 
-  enableChatControls();
+  const reportBtn =
+    $("reportBtn");
 
+  if (likeBtn) {
+    likeBtn.disabled = false;
+  }
+
+  if (reportBtn) {
+    reportBtn.disabled = false;
+  }
 
   if (
     socket &&
-    socket.connected &&
-    currentMatchId
+    socket.connected
   ) {
 
     socket.emit(
@@ -1350,121 +836,226 @@ function handleWebRTCConnected() {
       }
     );
   }
-
-
-  console.log(
-    "[VizoChat] REAL WEBRTC CONNECTION ESTABLISHED."
-  );
 }
 
 
-/* =========================================================
-   SEARCH
-========================================================= */
+/* =========================
+   TIMER
+========================= */
+
+function startTimer() {
+
+  stopTimer();
+
+  matchStartedAt =
+    Date.now();
+
+  updateTimer();
+
+  timerInterval =
+    setInterval(
+      updateTimer,
+      1000
+    );
+}
+
+
+function updateTimer() {
+
+  const timer =
+    $("timer");
+
+  if (!timer || !matchStartedAt) {
+    return;
+  }
+
+  const seconds =
+    Math.floor(
+      (Date.now() - matchStartedAt) /
+      1000
+    );
+
+  const minutes =
+    Math.floor(seconds / 60);
+
+  const secs =
+    seconds % 60;
+
+  timer.textContent =
+    "Match Time: " +
+    String(minutes).padStart(2, "0") +
+    ":" +
+    String(secs).padStart(2, "0");
+}
+
+
+function stopTimer() {
+
+  if (timerInterval) {
+
+    clearInterval(
+      timerInterval
+    );
+
+    timerInterval = null;
+  }
+
+  matchStartedAt = null;
+}
+
+
+/* =========================
+   CLEAN PEER
+========================= */
+
+function cleanupPeer() {
+
+  connected = false;
+
+  stopTimer();
+
+  pendingIceCandidates = [];
+
+  if (peerConnection) {
+
+    try {
+      peerConnection.close();
+    } catch (e) {}
+
+    peerConnection = null;
+  }
+
+  const remoteVideo =
+    $("remoteVideo");
+
+  if (remoteVideo) {
+    remoteVideo.srcObject = null;
+  }
+
+  const placeholder =
+    $("remotePlaceholder");
+
+  if (placeholder) {
+
+    placeholder.textContent =
+      "Looking for someone...";
+
+    placeholder.classList.remove(
+      "hidden"
+    );
+  }
+
+  const likeBtn =
+    $("likeBtn");
+
+  const reportBtn =
+    $("reportBtn");
+
+  if (likeBtn) {
+    likeBtn.disabled = true;
+  }
+
+  if (reportBtn) {
+    reportBtn.disabled = true;
+  }
+}
+
+
+/* =========================
+   START SEARCH
+========================= */
 
 async function startSearching() {
 
-  if (isSearching) {
+  if (searching) {
     return;
   }
 
 
   if (
-    window.VizoAuth &&
-    !window.VizoAuth.isLoggedIn() &&
-    !window.VizoAuth.canGuestStartMatch()
+    getUserType() === "guest" &&
+    getGuestMatches() >= GUEST_LIMIT
   ) {
 
     setStatus(
-      "Your 10 guest matches are finished. Please login with Google."
+      "Guest limit reached. Please login with Google to continue."
     );
 
     return;
   }
 
 
-  isSearching = true;
+  cleanupPeer();
 
-  isConnected = false;
-
-
-  cleanupPeerConnection();
-
-
-  currentMatchId = null;
-
-  currentPartnerId = null;
-
-  isInitiator = false;
-
-
-  resetTimer();
-
-  clearRemoteVideo();
-
-  disableChatControls();
-
+  searching = true;
 
   setStatus(
-    "Searching for someone..."
+    "Connecting to VizoChat server..."
   );
 
 
-  if (!socket) {
+  try {
 
     await connectSocket();
-  }
 
+    if (
+      !socket ||
+      !socket.connected
+    ) {
+      throw new Error(
+        "Socket not connected"
+      );
+    }
 
-  if (
-    !socket ||
-    !socket.connected
-  ) {
-
-    isSearching = false;
-
-    setStatus(
-      "Unable to connect to VizoChat server."
-    );
-
-    return;
-  }
-
-
-  if (!socketRegistered) {
 
     registerUser();
+
+
+    setStatus(
+      "Looking for someone..."
+    );
+
+
+    socket.emit(
+      "find-random-user",
+      {
+        userId:
+          getUserId(),
+
+        userType:
+          getUserType(),
+
+        isGuest:
+          getUserType() === "guest"
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Search error:",
+      error
+    );
+
+    searching = false;
+
+    setStatus(
+      "Server se connect nahi ho saka. Please try again."
+    );
   }
-
-
-  socket.emit(
-    "find-random-user"
-  );
-
-
-  console.log(
-    "[VizoChat] Searching for random user..."
-  );
 }
 
 
-/* =========================================================
-   NEXT USER
-========================================================= */
+/* =========================
+   NEXT
+========================= */
 
-function nextUser() {
+async function nextUser() {
 
-  if (!socket) {
-    return;
-  }
-
-
-  console.log(
-    "[VizoChat] Next user requested."
-  );
-
-
-  if (currentMatchId) {
+  if (
+    socket &&
+    socket.connected
+  ) {
 
     socket.emit(
       "next-user",
@@ -1475,56 +1066,28 @@ function nextUser() {
     );
   }
 
-
-  cleanupPeerConnection();
-
-
   currentMatchId = null;
-
   currentPartnerId = null;
 
-  isInitiator = false;
-
-  isConnected = false;
-
-  isSearching = false;
-
-
-  resetTimer();
-
-  clearRemoteVideo();
-
-  disableChatControls();
-
+  cleanupPeer();
 
   setStatus(
-    "Searching for someone..."
+    "Looking for someone..."
   );
 
-
-  setTimeout(() => {
-
-    startSearching();
-
-  }, 300);
+  await startSearching();
 }
 
 
-/* =========================================================
+/* =========================
    END CHAT
-========================================================= */
+========================= */
 
 function endChat() {
 
-  console.log(
-    "[VizoChat] Ending chat."
-  );
-
-
   if (
     socket &&
-    socket.connected &&
-    currentMatchId
+    socket.connected
   ) {
 
     socket.emit(
@@ -1536,70 +1099,16 @@ function endChat() {
     );
   }
 
-
-  cleanupPeerConnection();
-
-
   currentMatchId = null;
-
   currentPartnerId = null;
 
-  isInitiator = false;
-
-  isSearching = false;
-
-  isConnected = false;
-
-
-  resetTimer();
-
-  clearRemoteVideo();
-
-  disableChatControls();
-
-
-  setStatus(
-    "Chat ended. Press Next to find someone."
-  );
+  cleanupPeer();
 }
 
 
-/* =========================================================
-   MEDIA CONTROLS
-========================================================= */
-
-function updateMediaButtons() {
-
-  if (!localStream) {
-    return;
-  }
-
-
-  const videoTrack =
-    localStream.getVideoTracks()[0];
-
-  const audioTrack =
-    localStream.getAudioTracks()[0];
-
-
-  if (cameraButton) {
-
-    cameraButton.textContent =
-      videoTrack?.enabled
-        ? "📷 Camera On"
-        : "🚫 Camera Off";
-  }
-
-
-  if (micButton) {
-
-    micButton.textContent =
-      audioTrack?.enabled
-        ? "🎤 Mic On"
-        : "🔇 Mic Off";
-  }
-}
-
+/* =========================
+   CAMERA BUTTON
+========================= */
 
 function toggleCamera() {
 
@@ -1607,21 +1116,38 @@ function toggleCamera() {
     return;
   }
 
-
   const tracks =
     localStream.getVideoTracks();
 
+  if (!tracks.length) {
+    return;
+  }
 
-  tracks.forEach((track) => {
+  const enabled =
+    !tracks[0].enabled;
 
-    track.enabled =
-      !track.enabled;
-  });
+  tracks.forEach(
+    function(track) {
+      track.enabled = enabled;
+    }
+  );
 
+  const btn =
+    $("cameraBtn");
 
-  updateMediaButtons();
+  if (btn) {
+
+    btn.textContent =
+      enabled
+        ? "📷 Camera"
+        : "📷 Camera Off";
+  }
 }
 
+
+/* =========================
+   MIC BUTTON
+========================= */
 
 function toggleMic() {
 
@@ -1629,267 +1155,175 @@ function toggleMic() {
     return;
   }
 
-
   const tracks =
     localStream.getAudioTracks();
 
-
-  tracks.forEach((track) => {
-
-    track.enabled =
-      !track.enabled;
-  });
-
-
-  updateMediaButtons();
-}
-
-
-/* =========================================================
-   CLEANUP
-========================================================= */
-
-function cleanupPeerConnection() {
-
-  pendingIceCandidates = [];
-
-
-  if (peerConnection) {
-
-    try {
-
-      peerConnection.ontrack = null;
-
-      peerConnection.onicecandidate = null;
-
-      peerConnection.onconnectionstatechange =
-        null;
-
-      peerConnection.oniceconnectionstatechange =
-        null;
-
-      peerConnection.close();
-
-    } catch (error) {
-
-      console.warn(
-        "[VizoChat] Peer cleanup error:",
-        error
-      );
-    }
-  }
-
-
-  peerConnection = null;
-}
-
-
-/* =========================================================
-   BUTTON EVENTS
-========================================================= */
-
-if (cameraButton) {
-
-  cameraButton.addEventListener(
-    "click",
-    toggleCamera
-  );
-}
-
-
-if (micButton) {
-
-  micButton.addEventListener(
-    "click",
-    toggleMic
-  );
-}
-
-
-if (nextButton) {
-
-  nextButton.addEventListener(
-    "click",
-    nextUser
-  );
-}
-
-
-/* =========================================================
-   INITIALIZE
-========================================================= */
-
-async function initializeChat() {
-
-  if (initializationStarted) {
+  if (!tracks.length) {
     return;
   }
 
-  initializationStarted = true;
+  const enabled =
+    !tracks[0].enabled;
 
-
-  console.log(
-    `[VizoChat] chat.js ${CHAT_JS_VERSION} loaded.`
+  tracks.forEach(
+    function(track) {
+      track.enabled = enabled;
+    }
   );
 
+  const btn =
+    $("micBtn");
 
-  updateGuestCounter();
+  if (btn) {
 
-  disableChatControls();
-
-  resetTimer();
-
-  clearRemoteVideo();
-
-
-  try {
-
-    /*
-     * STEP 1
-     * Camera + microphone permission.
-     */
-
-    await requestCameraAndMic();
-
-
-    /*
-     * STEP 2
-     * Connect Socket.IO.
-     */
-
-    await connectSocket();
-
-
-    /*
-     * STEP 3
-     * Socket connected.
-     * register-user is handled by
-     * socket "connect" event.
-     */
-
-    if (
-      socket &&
-      socket.connected
-    ) {
-
-      if (!socketRegistered) {
-        registerUser();
-      }
-
-      /*
-       * STEP 4
-       * Start random matching.
-       */
-
-      await startSearching();
-
-    } else {
-
-      setStatus(
-        "Connecting to VizoChat server..."
-      );
-    }
-
-  } catch (error) {
-
-    console.error(
-      "[VizoChat] Initialization error:",
-      error
-    );
-
-    isSearching = false;
-
-    isConnected = false;
-
-    setStatus(
-      error.message ||
-      "Unable to start VizoChat."
-    );
+    btn.textContent =
+      enabled
+        ? "🎤 Mic"
+        : "🎤 Mic Off";
   }
 }
 
 
-/* =========================================================
+/* =========================
+   INITIALIZE
+========================= */
+
+async function initializeChat() {
+
+  console.log(
+    "VizoChat chat.js started"
+  );
+
+  setStatus(
+    "Starting VizoChat..."
+  );
+
+  updateGuestCounter();
+
+
+  const cameraBtn =
+    $("cameraBtn");
+
+  const micBtn =
+    $("micBtn");
+
+  const nextBtn =
+    $("nextBtn");
+
+
+  if (cameraBtn) {
+
+    cameraBtn.addEventListener(
+      "click",
+      toggleCamera
+    );
+  }
+
+
+  if (micBtn) {
+
+    micBtn.addEventListener(
+      "click",
+      toggleMic
+    );
+  }
+
+
+  if (nextBtn) {
+
+    nextBtn.addEventListener(
+      "click",
+      nextUser
+    );
+  }
+
+
+  const cameraReady =
+    await requestCameraAndMic();
+
+  if (!cameraReady) {
+    return;
+  }
+
+
+  await startSearching();
+}
+
+
+/* =========================
    PUBLIC API
-========================================================= */
+========================= */
 
 window.VizoChat = {
 
-  startSearching,
+  startSearching:
+    startSearching,
 
-  nextUser,
+  nextUser:
+    nextUser,
 
-  endChat,
+  endChat:
+    endChat,
 
-  toggleCamera,
+  getUserId:
+    getUserId,
 
-  toggleMic,
+  getUserType:
+    getUserType,
 
-  getState: () => ({
-    version:
-      CHAT_JS_VERSION,
+  isConnected:
+    function() {
+      return connected;
+    }
 
-    searching:
-      isSearching,
-
-    connected:
-      isConnected,
-
-    matchId:
-      currentMatchId,
-
-    partnerId:
-      currentPartnerId,
-
-    socketConnected:
-      Boolean(socket?.connected),
-
-    socketRegistered:
-      socketRegistered,
-
-    peerConnectionState:
-      peerConnection?.connectionState ||
-      "not-created"
-  })
 };
 
 
-/* =========================================================
+/* =========================
    START
-========================================================= */
+========================= */
 
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
+if (
+  document.readyState === "loading"
+) {
 
-    initializeChat();
-  }
-);
+  document.addEventListener(
+    "DOMContentLoaded",
+    initializeChat
+  );
+
+} else {
+
+  initializeChat();
+}
 
 
-/* =========================================================
+/* =========================
    PAGE CLOSE
-========================================================= */
+========================= */
 
 window.addEventListener(
   "beforeunload",
-  () => {
+  function() {
+
+    endChat();
 
     if (socket) {
-      socket.disconnect();
+
+      try {
+        socket.disconnect();
+      } catch (e) {}
     }
-
-
-    cleanupPeerConnection();
-
 
     if (localStream) {
 
       localStream
         .getTracks()
-        .forEach((track) => {
-          track.stop();
-        });
+        .forEach(
+          function(track) {
+            track.stop();
+          }
+        );
     }
   }
 );
