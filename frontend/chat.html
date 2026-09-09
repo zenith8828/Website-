@@ -146,6 +146,8 @@
       line-height: 1.5;
     }
 
+    /* TOP BUTTONS */
+
     .top-actions {
       position: absolute;
       top: 12px;
@@ -185,6 +187,8 @@
       cursor: not-allowed;
     }
 
+    /* LIKE */
+
     .like-wrapper {
       position: absolute;
       right: 14px;
@@ -211,34 +215,58 @@
       cursor: not-allowed;
     }
 
+    /* =========================================
+       CHAT / CAMERA / COIN
+       VIDEO AREA KE ANDAR HI RAHENGE
+    ========================================= */
+
     .local-controls {
       position: absolute;
+
       left: 50%;
       bottom: 20px;
+
       transform: translateX(-50%);
+
       z-index: 20;
+
       display: flex;
       align-items: center;
       justify-content: center;
+
       gap: 12px;
+
       padding: 9px 12px;
+
       border-radius: 18px;
+
       background: rgba(4, 7, 20, 0.78);
+
       border: 1px solid rgba(0, 204, 255, 0.25);
+
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      box-shadow: 0 0 18px rgba(0, 0, 0, 0.35);
+
+      box-shadow:
+        0 0 18px rgba(0, 0, 0, 0.35);
     }
 
     .control-button {
       width: 48px;
       height: 48px;
+
       border: 1px solid rgba(255, 255, 255, 0.15);
+
       border-radius: 14px;
+
       background: rgba(13, 18, 40, 0.9);
+
       color: #fff;
+
       font-size: 21px;
+
       cursor: pointer;
+
       transition: 0.2s ease;
     }
 
@@ -261,25 +289,39 @@
       box-shadow: 0 0 10px rgba(255, 200, 60, 0.2);
     }
 
+    /* STATUS */
+
     .status {
       position: absolute;
       left: 50%;
       top: 12px;
       transform: translateX(-50%);
       z-index: 15;
+
       min-width: 150px;
       max-width: calc(100% - 190px);
+
       padding: 9px 16px;
+
       text-align: center;
+
       border-radius: 999px;
+
       color: #dffaff;
+
       background: rgba(4, 9, 25, 0.78);
+
       border: 1px solid rgba(0, 204, 255, 0.3);
+
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
+
       font-size: 13px;
       font-weight: 700;
-      box-shadow: 0 0 12px rgba(0, 204, 255, 0.16);
+
+      box-shadow:
+        0 0 12px rgba(0, 204, 255, 0.16);
+
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -294,25 +336,43 @@
 
     .chat-panel {
       position: absolute;
+
       left: 50%;
+
+      /*
+       * Chat panel bhi video area ke andar hai.
+       * Controls ke upar open hoga.
+       */
       bottom: 88px;
+
       transform: translateX(-50%) translateY(20px);
+
       width: min(430px, calc(100% - 24px));
       height: min(430px, 48dvh);
+
       z-index: 50;
+
       display: flex;
       flex-direction: column;
+
       overflow: hidden;
+
       border-radius: 20px;
+
       background: rgba(6, 10, 28, 0.97);
+
       border: 1px solid rgba(0, 204, 255, 0.45);
+
       box-shadow:
         0 0 25px rgba(0, 204, 255, 0.2),
         0 15px 45px rgba(0, 0, 0, 0.55);
+
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
+
       opacity: 0;
       pointer-events: none;
+
       transition: 0.22s ease;
     }
 
@@ -325,10 +385,13 @@
     .chat-header {
       height: 52px;
       flex-shrink: 0;
+
       display: flex;
       align-items: center;
       justify-content: space-between;
+
       padding: 0 14px 0 17px;
+
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
@@ -341,69 +404,103 @@
     .chat-close {
       width: 34px;
       height: 34px;
+
       border: 0;
       border-radius: 10px;
+
       background: rgba(255, 255, 255, 0.08);
+
       color: #fff;
+
       font-size: 18px;
+
       cursor: pointer;
     }
 
     .chat-messages {
       flex: 1;
+
       overflow-y: auto;
+
       padding: 14px;
+
       display: flex;
       flex-direction: column;
+
       gap: 8px;
     }
 
     .chat-empty {
       margin: auto;
+
       text-align: center;
+
       color: #7f8ba8;
+
       font-size: 13px;
+
       line-height: 1.5;
     }
 
     .chat-message {
       max-width: 80%;
+
       padding: 9px 12px;
+
       border-radius: 14px;
+
       font-size: 13px;
+
       line-height: 1.4;
+
       word-break: break-word;
     }
 
     .chat-message.me {
       align-self: flex-end;
+
       background: rgba(0, 190, 255, 0.16);
+
       border: 1px solid rgba(0, 204, 255, 0.3);
     }
 
     .chat-message.partner {
       align-self: flex-start;
+
       background: rgba(255, 0, 170, 0.13);
+
       border: 1px solid rgba(255, 0, 170, 0.25);
     }
 
     .chat-form {
       display: flex;
+
       gap: 8px;
+
       padding: 10px;
+
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .chat-input {
       flex: 1;
+
       min-width: 0;
+
       height: 42px;
+
       padding: 0 13px;
+
       border-radius: 12px;
+
       outline: none;
+
       border: 1px solid rgba(255, 255, 255, 0.12);
+
       background: rgba(255, 255, 255, 0.05);
+
       color: #fff;
+
       font-size: 13px;
     }
 
@@ -414,11 +511,17 @@
     .chat-send {
       width: 48px;
       height: 42px;
+
       border: 1px solid rgba(0, 204, 255, 0.55);
+
       border-radius: 12px;
+
       background: rgba(0, 180, 255, 0.12);
+
       color: #fff;
+
       font-size: 18px;
+
       cursor: pointer;
     }
 
@@ -430,19 +533,36 @@
 
     .swipe-hint {
       position: absolute;
+
       left: 50%;
       top: 50%;
+
       transform: translate(-50%, -50%);
+
       z-index: 8;
+
       pointer-events: none;
+
       opacity: 0;
+
       color: rgba(255, 255, 255, 0.6);
+
       font-size: 12px;
+
       transition: opacity 0.25s ease;
     }
 
+    /* MOBILE */
+
     @media (max-width: 600px) {
+
       .video-area {
+        /*
+         * IMPORTANT:
+         * Yahan padding-bottom nahi diya gaya.
+         * Isliye video full area mein rahega
+         * aur controls uske UPAR overlay honge.
+         */
         padding: 7px;
       }
 
@@ -473,17 +593,27 @@
         padding: 8px 11px;
       }
 
+      /*
+       * Chat / Camera / Coin
+       * VIDEO BOX KE ANDAR
+       */
       .local-controls {
+        left: 50%;
         bottom: 12px;
+
         gap: 7px;
+
         padding: 7px 9px;
+
         border-radius: 15px;
       }
 
       .control-button {
         width: 43px;
         height: 43px;
+
         font-size: 19px;
+
         border-radius: 12px;
       }
 
@@ -498,16 +628,76 @@
         font-size: 20px;
       }
 
+      /*
+       * Chat panel controls ke upar
+       */
       .chat-panel {
         bottom: 76px;
         height: 52dvh;
+      }
+    }
+
+    /* SMALL PHONES */
+
+    @media (max-width: 380px) {
+
+      .video-area {
+        padding: 6px;
+      }
+
+      .video-grid {
+        gap: 6px;
+      }
+
+      .video-box {
+        border-radius: 12px;
+      }
+
+      .local-controls {
+        bottom: 10px;
+        gap: 5px;
+        padding: 6px 7px;
+      }
+
+      .control-button {
+        width: 41px;
+        height: 40px;
+        font-size: 18px;
+      }
+
+      .top-actions {
+        top: 7px;
+        right: 7px;
+      }
+
+      .action-button {
+        min-width: 37px;
+        height: 35px;
+        padding: 0 7px;
+        font-size: 11px;
+      }
+
+      .like-wrapper {
+        right: 8px;
+        bottom: 8px;
+      }
+
+      #likeBtn {
+        width: 43px;
+        height: 43px;
+      }
+
+      .chat-panel {
+        bottom: 70px;
       }
     }
   </style>
 </head>
 
 <body>
+
   <main class="chat-page">
+
     <section class="chat-main">
 
       <div class="video-area" id="videoArea">
@@ -524,15 +714,26 @@
               muted
             ></video>
 
-            <div class="video-placeholder" id="remotePlaceholder">
-              <div class="placeholder-icon">🔎</div>
-              <div class="placeholder-title">Looking for someone...</div>
+            <div
+              class="video-placeholder"
+              id="remotePlaceholder"
+            >
+              <div class="placeholder-icon">
+                🔎
+              </div>
+
+              <div class="placeholder-title">
+                Looking for someone...
+              </div>
+
               <div class="placeholder-text">
                 Please wait while VizoChat finds a random person for you.
               </div>
             </div>
 
+            <!-- REPORT -->
             <div class="top-actions">
+
               <button
                 type="button"
                 id="reportBtn"
@@ -541,9 +742,12 @@
               >
                 ⚠️ Report
               </button>
+
             </div>
 
+            <!-- LIKE -->
             <div class="like-wrapper">
+
               <button
                 type="button"
                 id="likeBtn"
@@ -552,9 +756,11 @@
               >
                 ❤️
               </button>
+
             </div>
 
           </div>
+
 
           <!-- LOCAL VIDEO -->
           <div class="video-box local">
@@ -566,9 +772,18 @@
               muted
             ></video>
 
-            <div class="video-placeholder" id="localPlaceholder">
-              <div class="placeholder-icon">📷</div>
-              <div class="placeholder-title">Starting camera...</div>
+            <div
+              class="video-placeholder"
+              id="localPlaceholder"
+            >
+              <div class="placeholder-icon">
+                📷
+              </div>
+
+              <div class="placeholder-title">
+                Starting camera...
+              </div>
+
               <div class="placeholder-text">
                 Allow camera and microphone access to start chatting.
               </div>
@@ -578,23 +793,52 @@
 
         </div>
 
-        <div class="swipe-hint" id="swipeHint">
+
+        <!-- SWIPE -->
+        <div
+          class="swipe-hint"
+          id="swipeHint"
+        >
           Swipe to meet someone else
         </div>
 
+
         <!-- STATUS -->
-        <div class="status" id="status">
+        <div
+          class="status"
+          id="status"
+        >
           Starting camera...
         </div>
 
-        <div class="timer" id="timer">00:00</div>
-        <div class="guest-counter" id="guestCounter"></div>
+
+        <!-- TIMER -->
+        <div
+          class="timer"
+          id="timer"
+        >
+          00:00
+        </div>
+
+
+        <!-- GUEST COUNTER -->
+        <div
+          class="guest-counter"
+          id="guestCounter"
+        ></div>
+
 
         <!-- CHAT PANEL -->
-        <div class="chat-panel" id="chatPanel">
+        <div
+          class="chat-panel"
+          id="chatPanel"
+        >
 
           <div class="chat-header">
-            <div class="chat-title">💬 Chat</div>
+
+            <div class="chat-title">
+              💬 Chat
+            </div>
 
             <button
               type="button"
@@ -604,15 +848,29 @@
             >
               ×
             </button>
+
           </div>
 
-          <div class="chat-messages" id="chatMessages">
-            <div class="chat-empty" id="chatEmpty">
+
+          <div
+            class="chat-messages"
+            id="chatMessages"
+          >
+
+            <div
+              class="chat-empty"
+              id="chatEmpty"
+            >
               Say hello 👋
             </div>
+
           </div>
 
-          <form class="chat-form" id="chatForm">
+
+          <form
+            class="chat-form"
+            id="chatForm"
+          >
 
             <input
               type="text"
@@ -637,9 +895,15 @@
 
         </div>
 
-        <!-- BOTTOM CONTROLS -->
+
+        <!--
+          IMPORTANT:
+          Ye buttons video-area ke ANDAR hain.
+          Isliye mobile par bhi video ke upar hi rahenge.
+        -->
         <div class="local-controls">
 
+          <!-- CHAT -->
           <button
             type="button"
             id="chatBtn"
@@ -649,6 +913,8 @@
             💬
           </button>
 
+
+          <!-- CAMERA -->
           <button
             type="button"
             id="cameraBtn"
@@ -658,6 +924,8 @@
             📷
           </button>
 
+
+          <!-- COIN -->
           <button
             type="button"
             id="coinBtn"
@@ -667,6 +935,8 @@
             🪙
           </button>
 
+
+          <!-- MIC HIDDEN -->
           <button
             type="button"
             id="micBtn"
@@ -682,17 +952,27 @@
       </div>
 
     </section>
+
   </main>
 
+
+  <!-- APP -->
   <script src="js/app.js?v=12"></script>
+
+  <!-- AUTH -->
   <script src="js/auth.js?v=12"></script>
 
+  <!-- SOCKET.IO -->
   <script
     src="https://cdn.socket.io/4.8.1/socket.io.min.js"
     crossorigin="anonymous"
   ></script>
 
+  <!-- LIKE -->
   <script src="js/like.js?v=12"></script>
+
+  <!-- CHAT -->
   <script src="js/chat.js?v=12"></script>
+
 </body>
 </html>
