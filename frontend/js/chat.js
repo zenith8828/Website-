@@ -1,28 +1,8 @@
 "use strict";
 
 /*
- * VizoChat Chat Client
- *
- * Supports:
- * Guest <-> Guest
- * Guest <-> Registered
- * Registered <-> Registered
- *
- * Backend events:
- * register-user
- * find-random-user
- * waiting-for-user
- * match-found
- * webrtc-offer
- * webrtc-answer
- * webrtc-ice-candidate
- * webrtc-connected
- * partner-disconnected
- * next-user
- * ready-for-next-user
- * guest-limit-reached
- * match-error
- * server-error
+ * VizoChat Random Video Chat
+ * Version 12
  */
 
 const VIZO_API = "https://website-r746.onrender.com/api";
@@ -42,690 +22,521 @@ let isConnected = false;
 let isInitiator = false;
 
 let searchTimer = null;
-let connectionTimer = null;
+let callTimer = null;
+let callSeconds = 0;
 
-let pendingIceCandidates = [];
+let iceCandidateQueue = [];
+let pendingOffer = null;
 
-let localVideo = null;
-let remoteVideo = null;
-let statusElement = null;
-let timerElement = null;
+let cameraEnabled = true;
+let microphoneEnabled = true;
 
-const ICE_SERVERS = {
-  iceServers: [
-    {
-      urls: "stun:stun.l.google.com:19302"
-    },
-    {
-      urls: "stun:stun1.l.google.com:19302"
-    }
-  ]
-};
+let reportSubmitted = false;
 
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
 
-// ======================================================
-// DOM
-// ======================================================
+let initialized = false;
 
-function getElements() {
-  localVideo =
-    document.getElementById("localVideo") ||
-    document.querySelector("#local-video") ||
-    document.querySelector(".local-video");
+/* -----------------------------------------
+   DOM
+----------------------------------------- */
 
-  remoteVideo =
-    document.getElementById("remoteVideo") ||
-    document.querySelector("#remote-video") ||
-    document.querySelector(".remote-video");
+const remoteVideo = document.getElementById("remoteVideo");
+const localVideo = document.getElementById("localVideo");
 
-  statusElement =
-    document.getElementById("status") ||
-    document.getElementById("statusText") ||
-    document.querySelector(".status");
+const remotePlaceholder =
+  document.getElementById("remotePlaceholder");
 
-  timerElement =
-    document.getElementById("timer") ||
-    document.getElementById("chatTimer") ||
-    document.querySelector(".timer");
-}
+const localPlaceholder =
+  document.getElementById("localPlaceholder");
 
+const statusElement =
+  document.getElementById("status");
 
-// ======================================================
-// AUTH / USER
-// ======================================================
+const timerElement =
+  document.getElementById("timer");
+
+const reportButton =
+  document.getElementById("reportBtn");
+
+const likeButton =
+  document.getElementById("likeBtn");
+
+const chatButton =
+  document.getElementById("chatBtn");
+
+const cameraButton =
+  document.getElementById("cameraBtn");
+
+const micButton =
+  document.getElementById("micBtn");
+
+const coinButton =
+  document.getElementById("coinBtn");
+
+const chatPanel =
+  document.getElementById("chatPanel");
+
+const chatCloseButton =
+  document.getElementById("chatCloseBtn");
+
+const chatMessages =
+  document.getElementById("chatMessages");
+
+const chatForm =
+  document.getElementById("chatForm");
+
+const chatInput =
+  document.getElementById("chatInput");
+
+const chatSendButton =
+  document.getElementById("chatSendBtn");
+
+const chatEmpty =
+  document.getElementById("chatEmpty");
+
+const videoArea =
+  document.getElementById("videoArea");
+
+/* -----------------------------------------
+   AUTH
+----------------------------------------- */
 
 function getAuthData() {
-  let userId = "";
+  let userId = null;
   let isGuest = true;
+  let token = null;
 
   try {
-    /*
-     * VizoAuth is preferred if auth.js is loaded.
-     */
     if (
       window.VizoAuth &&
-      typeof window.VizoAuth.isLoggedIn === "function" &&
-      window.VizoAuth.isLoggedIn()
+      typeof window.VizoAuth.getUserId === "function"
     ) {
-      isGuest = false;
+      userId = window.VizoAuth.getUserId();
+    }
 
-      /*
-       * Try common auth.js functions/properties.
-       */
-      if (
-        typeof window.VizoAuth.getUser === "function"
-      ) {
-        const user =
-          window.VizoAuth.getUser();
-
-        if (user) {
-          userId =
-            user.id ||
-            user._id ||
-            user.userId ||
-            user.googleId ||
-            "";
-        }
-      }
-
-      if (!userId) {
-        userId =
-          localStorage.getItem("vizoUserId") ||
-          localStorage.getItem("userId") ||
-          localStorage.getItem("user_id") ||
-          "";
-      }
+    if (
+      window.VizoAuth &&
+      typeof window.VizoAuth.getUserType === "function"
+    ) {
+      isGuest =
+        window.VizoAuth.getUserType() !== "user";
     }
   } catch (error) {
-    console.warn(
-      "[AUTH] Unable to read VizoAuth:",
-      error
-    );
+    console.warn("VizoAuth read error:", error);
   }
 
+  try {
+    token =
+      localStorage.getItem("vizochat_auth_token") ||
+      localStorage.getItem("vizoAuthToken") ||
+      null;
+  } catch (error) {
+    console.warn("Token storage error:", error);
+  }
 
-  /*
-   * Fallback localStorage auth.
-   */
   if (!userId) {
-    const storedUserKeys = [
-      "vizoUser",
-      "user",
-      "currentUser"
-    ];
+    try {
+      const savedUser =
+        localStorage.getItem("vizochat_user");
 
-    for (const key of storedUserKeys) {
-      try {
-        const raw =
-          localStorage.getItem(key);
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
 
-        if (!raw) {
-          continue;
+        if (parsed && parsed.id) {
+          userId = parsed.id;
+          isGuest = false;
         }
-
-        const user =
-          JSON.parse(raw);
-
-        if (user) {
-          userId =
-            user.id ||
-            user._id ||
-            user.userId ||
-            user.googleId ||
-            "";
-
-          if (userId) {
-            isGuest = false;
-            break;
-          }
-        }
-      } catch (error) {
-        // Ignore invalid localStorage JSON.
       }
+    } catch (error) {
+      console.warn("Saved user read error:", error);
     }
   }
 
-
-  /*
-   * If a logged-in token exists, treat user as registered.
-   */
   if (!userId) {
-    const token =
-      localStorage.getItem("vizoToken") ||
-      localStorage.getItem("token") ||
-      localStorage.getItem("authToken");
+    try {
+      let guestId =
+        localStorage.getItem("vizoGuestId");
 
-    if (token) {
+      if (!guestId) {
+        guestId =
+          "guest_" +
+          Date.now() +
+          "_" +
+          Math.random()
+            .toString(36)
+            .slice(2, 10);
+
+        localStorage.setItem(
+          "vizoGuestId",
+          guestId
+        );
+      }
+
+      userId = guestId;
+      isGuest = true;
+    } catch (error) {
       userId =
-        localStorage.getItem("vizoUserId") ||
-        localStorage.getItem("userId") ||
-        "";
-
-      if (userId) {
-        isGuest = false;
-      }
-    }
-  }
-
-
-  /*
-   * Guest gets a permanent unique ID for this browser.
-   *
-   * Important:
-   * Guest ID must NOT be the same for everyone.
-   */
-  if (!userId) {
-    let guestId =
-      localStorage.getItem(
-        "vizoGuestId"
-      );
-
-    if (!guestId) {
-      guestId =
-        "guest-" +
+        "guest_" +
         Date.now() +
-        "-" +
+        "_" +
         Math.random()
           .toString(36)
-          .substring(2, 12);
+          .slice(2, 10);
 
-      localStorage.setItem(
-        "vizoGuestId",
-        guestId
-      );
+      isGuest = true;
     }
-
-    userId = guestId;
-    isGuest = true;
   }
 
-
   return {
-    userId: String(userId),
-    isGuest
+    userId,
+    isGuest,
+    token
   };
 }
 
-
-// ======================================================
-// STATUS
-// ======================================================
+/* -----------------------------------------
+   UI
+----------------------------------------- */
 
 function setStatus(message) {
-  console.log("[STATUS]", message);
+  if (!statusElement) return;
 
-  if (statusElement) {
-    statusElement.textContent =
-      message;
+  statusElement.textContent =
+    message || "";
+}
+
+function setConnectedUI() {
+  setStatus("Connected");
+
+  if (remotePlaceholder) {
+    remotePlaceholder.classList.add("hidden");
   }
 
-  /*
-   * Support other possible status elements.
-   */
-  const elements = [
-    document.getElementById("searchStatus"),
-    document.getElementById("connectionStatus")
-  ];
+  if (localPlaceholder && localStream) {
+    localPlaceholder.classList.add("hidden");
+  }
 
-  elements.forEach((element) => {
-    if (element) {
-      element.textContent =
-        message;
+  if (likeButton) {
+    likeButton.disabled = false;
+  }
+
+  if (reportButton) {
+    reportButton.disabled =
+      !currentPartnerId;
+  }
+
+  enableChat();
+
+  startCallTimer();
+}
+
+function setSearchingUI() {
+  setStatus("Looking for someone...");
+
+  if (remotePlaceholder) {
+    remotePlaceholder.classList.remove("hidden");
+  }
+
+  if (remotePlaceholder) {
+    const title =
+      remotePlaceholder.querySelector(
+        ".placeholder-title"
+      );
+
+    if (title) {
+      title.textContent =
+        "Looking for someone...";
     }
+  }
+
+  if (likeButton) {
+    likeButton.disabled = true;
+  }
+
+  if (reportButton) {
+    reportButton.disabled = true;
+  }
+
+  disableChat();
+}
+
+function setCameraStartingUI() {
+  setStatus("Starting camera...");
+
+  if (localPlaceholder) {
+    localPlaceholder.classList.remove("hidden");
+  }
+}
+
+/* -----------------------------------------
+   MEDIA
+----------------------------------------- */
+
+async function requestMedia() {
+  if (!navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia) {
+    throw new Error(
+      "Camera and microphone are not supported."
+    );
+  }
+
+  setCameraStartingUI();
+
+  try {
+    localStream =
+      await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+
+    if (localVideo) {
+      localVideo.srcObject =
+        localStream;
+
+      try {
+        await localVideo.play();
+      } catch (error) {
+        console.warn(
+          "Local video autoplay:",
+          error
+        );
+      }
+    }
+
+    cameraEnabled = true;
+    microphoneEnabled = true;
+
+    if (cameraButton) {
+      cameraButton.classList.add("active");
+      cameraButton.classList.remove(
+        "camera-off"
+      );
+      cameraButton.textContent = "📷";
+    }
+
+    if (localPlaceholder) {
+      localPlaceholder.classList.add(
+        "hidden"
+      );
+    }
+
+    return localStream;
+
+  } catch (error) {
+    console.error(
+      "Camera/microphone error:",
+      error
+    );
+
+    setStatus(
+      "Camera/microphone permission required"
+    );
+
+    if (localPlaceholder) {
+      const title =
+        localPlaceholder.querySelector(
+          ".placeholder-title"
+        );
+
+      const text =
+        localPlaceholder.querySelector(
+          ".placeholder-text"
+        );
+
+      if (title) {
+        title.textContent =
+          "Camera access needed";
+      }
+
+      if (text) {
+        text.textContent =
+          "Allow camera and microphone permission, then reload the page.";
+      }
+    }
+
+    throw error;
+  }
+}
+
+/* -----------------------------------------
+   SOCKET
+----------------------------------------- */
+
+function connectSocket() {
+  return new Promise((resolve, reject) => {
+
+    if (
+      socket &&
+      socket.connected
+    ) {
+      resolve(socket);
+      return;
+    }
+
+    socket =
+      io(VIZO_SOCKET, {
+        transports: [
+          "websocket",
+          "polling"
+        ],
+        reconnection: true,
+        reconnectionAttempts: 10
+      });
+
+    let resolved = false;
+
+    socket.on("connect", () => {
+      console.log(
+        "Socket connected:",
+        socket.id
+      );
+
+      registerUser();
+
+      if (!resolved) {
+        resolved = true;
+        resolve(socket);
+      }
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error(
+        "Socket connection error:",
+        error
+      );
+
+      if (!resolved) {
+        resolved = true;
+        reject(error);
+      }
+
+      setStatus(
+        "Connection problem"
+      );
+    });
+
+    setupSocketEvents(socket);
   });
 }
 
+function setupSocketEvents(currentSocket) {
 
-// ======================================================
-// TIMER
-// ======================================================
-
-let timerSeconds = 0;
-
-function resetTimer() {
-  timerSeconds = 0;
-
-  if (timerElement) {
-    timerElement.textContent =
-      "00:00";
-  }
-}
-
-function startTimer() {
-  stopTimer();
-
-  timerSeconds = 0;
-
-  connectionTimer =
-    setInterval(() => {
-      timerSeconds++;
-
-      const minutes =
-        Math.floor(
-          timerSeconds / 60
-        );
-
-      const seconds =
-        timerSeconds % 60;
-
-      const text =
-        String(minutes).padStart(
-          2,
-          "0"
-        ) +
-        ":" +
-        String(seconds).padStart(
-          2,
-          "0"
-        );
-
-      if (timerElement) {
-        timerElement.textContent =
-          text;
-      }
-    }, 1000);
-}
-
-function stopTimer() {
-  if (connectionTimer) {
-    clearInterval(
-      connectionTimer
-    );
-
-    connectionTimer = null;
-  }
-}
-
-
-// ======================================================
-// MEDIA
-// ======================================================
-
-async function requestMedia() {
-  if (
-    localStream &&
-    localStream.getTracks().length
-  ) {
-    return localStream;
-  }
-
-  if (
-    !navigator.mediaDevices ||
-    !navigator.mediaDevices.getUserMedia
-  ) {
-    throw new Error(
-      "Camera and microphone are not supported by this browser."
-    );
-  }
-
-  setStatus(
-    "Camera and microphone permission..."
-  );
-
-  localStream =
-    await navigator.mediaDevices.getUserMedia(
-      {
-        video: true,
-        audio: true
-      }
-    );
-
-  if (localVideo) {
-    localVideo.srcObject =
-      localStream;
-
-    localVideo.muted = true;
-    localVideo.playsInline = true;
-
-    try {
-      await localVideo.play();
-    } catch (error) {
-      console.warn(
-        "[MEDIA] Local video play:",
-        error
-      );
-    }
-  }
-
-  return localStream;
-}
-
-
-// ======================================================
-// SOCKET CONNECTION
-// ======================================================
-
-function connectSocket() {
-  return new Promise(
-    (resolve, reject) => {
-
-      if (
-        socket &&
-        socket.connected
-      ) {
-        resolve(socket);
-        return;
-      }
-
-
-      if (typeof io !== "function") {
-        reject(
-          new Error(
-            "Socket.IO is not loaded."
-          )
-        );
-
-        return;
-      }
-
-
-      setStatus(
-        "Connecting to server..."
-      );
-
-
-      socket =
-        io(VIZO_SOCKET, {
-          transports: [
-            "websocket",
-            "polling"
-          ],
-          reconnection: true,
-          reconnectionAttempts: 10,
-          timeout: 20000
-        });
-
-
-      let settled = false;
-
-
-      socket.on(
-        "connect",
-        () => {
-
-          console.log(
-            "[SOCKET] Connected:",
-            socket.id
-          );
-
-          if (!settled) {
-            settled = true;
-            resolve(socket);
-          }
-
-
-          /*
-           * Register immediately after socket connects.
-           */
-          registerUser();
-        }
-      );
-
-
-      socket.on(
-        "connect_error",
-        (error) => {
-
-          console.error(
-            "[SOCKET] Connection error:",
-            error
-          );
-
-          setStatus(
-            "Server connection failed. Retrying..."
-          );
-
-          if (!settled) {
-            settled = true;
-            reject(error);
-          }
-        }
-      );
-
-
-      socket.on(
-        "disconnect",
-        (reason) => {
-
-          console.log(
-            "[SOCKET] Disconnected:",
-            reason
-          );
-
-          isConnected = false;
-
-          stopTimer();
-
-          if (!isSearching) {
-            setStatus(
-              "Disconnected from server."
-            );
-          }
-        }
-      );
-
-
-      setupSocketEvents();
-    }
-  );
-}
-
-
-// ======================================================
-// REGISTER USER
-// ======================================================
-
-function registerUser() {
-  if (
-    !socket ||
-    !socket.connected
-  ) {
-    return;
-  }
-
-
-  const auth =
-    getAuthData();
-
-
-  console.log(
-    "[REGISTER]",
-    auth
-  );
-
-
-  socket.emit(
-    "register-user",
-    {
-      userId:
-        auth.userId,
-
-      isGuest:
-        auth.isGuest,
-
-      userType:
-        auth.isGuest
-          ? "guest"
-          : "registered"
-    }
-  );
-}
-
-
-// ======================================================
-// SOCKET EVENTS
-// ======================================================
-
-let socketEventsRegistered = false;
-
-function setupSocketEvents() {
-  if (
-    socketEventsRegistered ||
-    !socket
-  ) {
-    return;
-  }
-
-  socketEventsRegistered = true;
-
-
-  // ----------------------------------------------
-  // REGISTERED
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "registered",
     (data) => {
-
       console.log(
-        "[REGISTERED]",
+        "Registered:",
         data
       );
-
-      if (isSearching) {
-        findRandomUser();
-      }
     }
   );
 
-
-  // ----------------------------------------------
-  // WAITING
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "waiting-for-user",
-    (data) => {
-
-      console.log(
-        "[WAITING]",
-        data
-      );
-
+    () => {
       isSearching = true;
       isMatched = false;
       isConnected = false;
 
-      setStatus(
-        "Searching for someone..."
-      );
+      currentPartnerId = null;
+      currentMatchId = null;
 
-      startSearchAnimation();
+      reportSubmitted = false;
+
+      setSearchingUI();
+      resetChatBox();
+
+      clearCallTimer();
     }
   );
 
-
-  // ----------------------------------------------
-  // MATCH FOUND
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "match-found",
     async (data) => {
 
       console.log(
-        "[MATCH FOUND]",
+        "Match found:",
         data
       );
-
-      stopSearchAnimation();
 
       isSearching = false;
       isMatched = true;
       isConnected = false;
 
       currentMatchId =
-        data.matchId || null;
+        data?.matchId ||
+        data?.id ||
+        null;
 
       currentPartnerId =
-        data.partnerId || null;
+        data?.partnerId ||
+        data?.userId ||
+        data?.partnerUserId ||
+        null;
 
       isInitiator =
-        Boolean(data.initiator);
+        Boolean(data?.initiator);
 
+      reportSubmitted = false;
 
-      if (!currentMatchId) {
-        setStatus(
-          "Invalid match. Searching again..."
-        );
-
-        restartSearch();
-
-        return;
+      if (reportButton) {
+        reportButton.disabled =
+          !currentPartnerId;
       }
 
+      if (likeButton) {
+        likeButton.disabled = true;
+      }
+
+      resetChatBox();
+
+      if (remotePlaceholder) {
+        remotePlaceholder.classList.remove(
+          "hidden"
+        );
+      }
 
       setStatus(
-        "Person found. Connecting..."
+        "Connecting..."
       );
 
+      clearCallTimer();
 
       try {
-        await createPeerConnection();
+        createPeerConnection();
 
-
-        /*
-         * Only initiator creates offer.
-         */
         if (isInitiator) {
           await createOffer();
         }
 
       } catch (error) {
-
         console.error(
-          "[WEBRTC] Match setup failed:",
+          "Match setup error:",
           error
         );
 
         setStatus(
-          "Connection failed. Finding another person..."
+          "Connection failed"
         );
-
-        restartSearch();
       }
     }
   );
 
-
-  // ----------------------------------------------
-  // WEBRTC OFFER
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "webrtc-offer",
     async (data) => {
 
-      console.log(
-        "[WEBRTC] Offer received"
-      );
-
-      if (
-        !data ||
-        !data.offer ||
-        !data.matchId
-      ) {
-        return;
-      }
-
-
-      if (
-        currentMatchId &&
-        data.matchId !==
-          currentMatchId
-      ) {
-        return;
-      }
-
-
-      currentMatchId =
-        data.matchId;
-
-
       try {
+        if (!peerConnection) {
+          createPeerConnection();
+        }
 
-        await createPeerConnection();
-
+        if (!data?.offer) {
+          return;
+        }
 
         await peerConnection.setRemoteDescription(
           new RTCSessionDescription(
@@ -733,80 +544,44 @@ function setupSocketEvents() {
           )
         );
 
-
-        await flushPendingIceCandidates();
-
+        await flushIceCandidates();
 
         const answer =
           await peerConnection.createAnswer();
-
 
         await peerConnection.setLocalDescription(
           answer
         );
 
-
-        socket.emit(
+        currentSocket.emit(
           "webrtc-answer",
           {
             matchId:
               currentMatchId,
-
-            answer:
-              peerConnection.localDescription
+            answer
           }
         );
 
-
-        setStatus(
-          "Connecting video..."
-        );
-
       } catch (error) {
-
         console.error(
-          "[WEBRTC] Offer error:",
+          "Offer handling error:",
           error
         );
-
-        restartSearch();
       }
     }
   );
 
-
-  // ----------------------------------------------
-  // WEBRTC ANSWER
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "webrtc-answer",
     async (data) => {
 
-      console.log(
-        "[WEBRTC] Answer received"
-      );
-
-      if (
-        !data ||
-        !data.answer ||
-        !data.matchId ||
-        !peerConnection
-      ) {
-        return;
-      }
-
-
-      if (
-        currentMatchId &&
-        data.matchId !==
-          currentMatchId
-      ) {
-        return;
-      }
-
-
       try {
+        if (
+          !peerConnection ||
+          !data?.answer
+        ) {
+          return;
+        }
 
         await peerConnection.setRemoteDescription(
           new RTCSessionDescription(
@@ -814,335 +589,279 @@ function setupSocketEvents() {
           )
         );
 
-
-        await flushPendingIceCandidates();
+        await flushIceCandidates();
 
       } catch (error) {
-
         console.error(
-          "[WEBRTC] Answer error:",
+          "Answer handling error:",
           error
         );
       }
     }
   );
 
-
-  // ----------------------------------------------
-  // ICE CANDIDATE
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "webrtc-ice-candidate",
     async (data) => {
 
-      if (
-        !data ||
-        !data.candidate ||
-        !data.matchId
-      ) {
+      if (!data?.candidate) {
         return;
       }
 
-
-      if (
-        currentMatchId &&
-        data.matchId !==
-          currentMatchId
-      ) {
-        return;
-      }
-
-
-      if (
-        !peerConnection
-      ) {
-        pendingIceCandidates.push(
+      const candidate =
+        new RTCIceCandidate(
           data.candidate
         );
 
-        return;
-      }
-
-
-      try {
-
-        if (
-          peerConnection.remoteDescription
-        ) {
-
+      if (
+        peerConnection &&
+        peerConnection.remoteDescription
+      ) {
+        try {
           await peerConnection.addIceCandidate(
-            new RTCIceCandidate(
-              data.candidate
-            )
+            candidate
           );
-
-        } else {
-
-          pendingIceCandidates.push(
-            data.candidate
+        } catch (error) {
+          console.warn(
+            "ICE candidate error:",
+            error
           );
         }
-
-      } catch (error) {
-
-        console.warn(
-          "[WEBRTC] ICE candidate error:",
-          error
+      } else {
+        iceCandidateQueue.push(
+          candidate
         );
       }
     }
   );
 
+  currentSocket.on(
+    "webrtc-connected",
+    () => {
+      markConnected();
+    }
+  );
 
-  // ----------------------------------------------
-  // PARTNER DISCONNECTED
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "partner-disconnected",
-    (data) => {
+    () => {
 
       console.log(
-        "[PARTNER DISCONNECTED]",
-        data
+        "Partner disconnected"
       );
 
       cleanupPeer();
 
-      isSearching = false;
       isMatched = false;
       isConnected = false;
+      currentPartnerId = null;
+      currentMatchId = null;
+
+      if (likeButton) {
+        likeButton.disabled = true;
+      }
+
+      if (reportButton) {
+        reportButton.disabled = true;
+      }
+
+      resetChatBox();
 
       setStatus(
-        "Person disconnected."
+        "Person disconnected"
       );
 
+      clearCallTimer();
 
-      /*
-       * Automatically search for another user.
-       */
       setTimeout(() => {
-
-        if (
-          socket &&
-          socket.connected
-        ) {
-          startSearching();
-        }
-
+        startSearching();
       }, 800);
     }
   );
 
-
-  // ----------------------------------------------
-  // READY FOR NEXT USER
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "ready-for-next-user",
     () => {
 
-      console.log(
-        "[NEXT] Ready"
-      );
-
       cleanupPeer();
 
-      currentMatchId = null;
-      currentPartnerId = null;
-
-      isSearching = false;
+      isSearching = true;
       isMatched = false;
       isConnected = false;
 
-      resetTimer();
+      currentPartnerId = null;
+      currentMatchId = null;
 
-      startSearching();
+      reportSubmitted = false;
+
+      resetChatBox();
+      clearCallTimer();
+
+      setSearchingUI();
+
+      setTimeout(() => {
+        findRandomUser();
+      }, 150);
     }
   );
 
-
-  // ----------------------------------------------
-  // GUEST LIMIT
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "guest-limit-reached",
     (data) => {
 
-      console.warn(
-        "[GUEST LIMIT]",
-        data
-      );
-
-      cleanupPeer();
-
       isSearching = false;
-      isMatched = false;
-      isConnected = false;
-
-      stopSearchAnimation();
 
       setStatus(
-        data &&
-        data.message
-          ? data.message
-          : "Guest limit finished. Please login with Google."
+        data?.message ||
+        "Guest limit reached. Please login to continue."
       );
-
-
-      /*
-       * Give login button/page a chance.
-       */
-      setTimeout(() => {
-
-        const loginButton =
-          document.querySelector(
-            "[data-login]"
-          );
-
-        if (loginButton) {
-          loginButton.style.display =
-            "";
-        }
-
-      }, 100);
     }
   );
 
-
-  // ----------------------------------------------
-  // MATCH ERROR
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "match-error",
     (data) => {
 
       console.error(
-        "[MATCH ERROR]",
+        "Match error:",
         data
       );
 
-      if (
-        data &&
-        data.message
-      ) {
-        setStatus(
-          data.message
-        );
-      }
-
-
       isSearching = false;
 
-      setTimeout(() => {
-
-        if (
-          socket &&
-          socket.connected &&
-          !isMatched
-        ) {
-          startSearching();
-        }
-
-      }, 1000);
+      setStatus(
+        data?.message ||
+        "Unable to find someone"
+      );
     }
   );
 
-
-  // ----------------------------------------------
-  // SERVER ERROR
-  // ----------------------------------------------
-
-  socket.on(
+  currentSocket.on(
     "server-error",
     (data) => {
 
       console.error(
-        "[SERVER ERROR]",
+        "Server error:",
         data
       );
 
       setStatus(
-        data &&
-        data.message
-          ? data.message
-          : "Server error."
+        data?.message ||
+        "Server error"
       );
+    }
+  );
+
+  /* TEXT CHAT */
+
+  currentSocket.on(
+    "chat-message",
+    (data) => {
+
+      if (!data) {
+        return;
+      }
+
+      if (
+        data.matchId &&
+        currentMatchId &&
+        data.matchId !== currentMatchId
+      ) {
+        return;
+      }
+
+      const message =
+        typeof data.message === "string"
+          ? data.message.trim()
+          : "";
+
+      if (!message) {
+        return;
+      }
+
+      appendChatMessage(
+        message,
+        "partner"
+      );
+
+      openChatBox();
     }
   );
 }
 
+/* -----------------------------------------
+   REGISTER
+----------------------------------------- */
 
-// ======================================================
-// FIND RANDOM USER
-// ======================================================
+function registerUser() {
 
-function findRandomUser() {
-  if (
-    !socket ||
-    !socket.connected
-  ) {
+  if (!socket) {
     return;
   }
-
 
   const auth =
     getAuthData();
 
-
-  /*
-   * Make sure server has the latest
-   * guest/registered state.
-   */
   socket.emit(
     "register-user",
     {
-      userId:
-        auth.userId,
+      userId: auth.userId,
+      isGuest: auth.isGuest,
+      token: auth.token || null
+    }
+  );
+}
 
-      isGuest:
-        auth.isGuest,
+/* -----------------------------------------
+   FIND RANDOM USER
+----------------------------------------- */
 
-      userType:
-        auth.isGuest
-          ? "guest"
-          : "registered"
+function findRandomUser() {
+
+  if (!socket ||
+      !socket.connected) {
+    return;
+  }
+
+  const auth =
+    getAuthData();
+
+  isSearching = true;
+  isMatched = false;
+  isConnected = false;
+
+  setSearchingUI();
+
+  socket.emit(
+    "register-user",
+    {
+      userId: auth.userId,
+      isGuest: auth.isGuest,
+      token: auth.token || null
     }
   );
 
-
-  /*
-   * Small delay so register-user
-   * reaches server first.
-   */
   setTimeout(() => {
 
-    if (
-      socket &&
-      socket.connected &&
-      !isMatched
-    ) {
-
-      console.log(
-        "[SEARCH] find-random-user"
-      );
-
-      socket.emit(
-        "find-random-user"
-      );
+    if (!socket ||
+        !socket.connected) {
+      return;
     }
+
+    socket.emit(
+      "find-random-user",
+      {
+        userId: auth.userId,
+        isGuest: auth.isGuest
+      }
+    );
 
   }, 100);
 }
 
-
-// ======================================================
-// START SEARCHING
-// ======================================================
+/* -----------------------------------------
+   SEARCH
+----------------------------------------- */
 
 async function startSearching() {
 
@@ -1150,178 +869,56 @@ async function startSearching() {
     return;
   }
 
-
-  if (isMatched) {
-    return;
-  }
-
-
-  stopSearchAnimation();
-
-  cleanupPeer();
-
-
-  currentMatchId = null;
-  currentPartnerId = null;
-
-  isMatched = false;
-  isConnected = false;
-
-  resetTimer();
-
-
-  isSearching = true;
-
-  setStatus(
-    "Starting..."
-  );
-
-
   try {
 
-    await requestMedia();
+    if (!socket ||
+        !socket.connected) {
+      await connectSocket();
+    }
 
-    await connectSocket();
+    if (!localStream) {
+      await requestMedia();
+    }
 
-
-    /*
-     * Socket may already be connected.
-     * Ensure registration before searching.
-     */
-    registerUser();
-
-
-    setTimeout(() => {
-
-      if (
-        socket &&
-        socket.connected &&
-        isSearching &&
-        !isMatched
-      ) {
-        findRandomUser();
-      }
-
-    }, 250);
+    findRandomUser();
 
   } catch (error) {
 
     console.error(
-      "[START] Failed:",
+      "Start searching error:",
       error
     );
 
-    isSearching = false;
-
     setStatus(
-      "Camera/microphone or server connection failed."
+      "Unable to start chat"
     );
   }
 }
 
+/* -----------------------------------------
+   PEER CONNECTION
+----------------------------------------- */
 
-// ======================================================
-// RESTART SEARCH
-// ======================================================
-
-function restartSearch() {
-
-  stopSearchAnimation();
+function createPeerConnection() {
 
   cleanupPeer();
 
-  currentMatchId = null;
-  currentPartnerId = null;
-
-  isMatched = false;
-  isConnected = false;
-
-  isSearching = false;
-
-  resetTimer();
-
-
-  setTimeout(() => {
-
-    if (
-      socket &&
-      socket.connected
-    ) {
-      startSearching();
-    } else {
-      startSearching();
-    }
-
-  }, 500);
-}
-
-
-// ======================================================
-// SEARCH ANIMATION
-// ======================================================
-
-function startSearchAnimation() {
-  stopSearchAnimation();
-
-  let dots = 0;
-
-  searchTimer =
-    setInterval(() => {
-
-      if (!isSearching) {
-        stopSearchAnimation();
-        return;
-      }
-
-      dots =
-        (dots + 1) % 4;
-
-      const text =
-        "Searching for someone" +
-        ".".repeat(dots);
-
-      setStatus(text);
-
-    }, 700);
-}
-
-function stopSearchAnimation() {
-  if (searchTimer) {
-    clearInterval(
-      searchTimer
-    );
-
-    searchTimer = null;
-  }
-}
-
-
-// ======================================================
-// WEBRTC
-// ======================================================
-
-async function createPeerConnection() {
-
-  if (
-    peerConnection
-  ) {
-    return peerConnection;
-  }
-
+  iceCandidateQueue = [];
 
   peerConnection =
-    new RTCPeerConnection(
-      ICE_SERVERS
-    );
+    new RTCPeerConnection({
+      iceServers: [
+        {
+          urls:
+            "stun:stun.l.google.com:19302"
+        },
+        {
+          urls:
+            "stun:stun1.l.google.com:19302"
+        }
+      ]
+    });
 
-
-  pendingIceCandidates =
-    pendingIceCandidates || [];
-
-
-  /*
-   * Add local tracks.
-   */
   if (localStream) {
 
     localStream
@@ -1336,135 +933,54 @@ async function createPeerConnection() {
       });
   }
 
-
-  /*
-   * Remote tracks.
-   */
   peerConnection.ontrack =
-    async (event) => {
+    (event) => {
 
-      console.log(
-        "[WEBRTC] Remote track received"
-      );
-
-
-      if (!remoteVideo) {
-        getElements();
-      }
-
-
-      if (!remoteVideo) {
+      if (
+        !remoteVideo ||
+        !event.streams ||
+        !event.streams[0]
+      ) {
         return;
       }
 
-
-      /*
-       * Prefer the first MediaStream.
-       */
-      if (
-        event.streams &&
-        event.streams[0]
-      ) {
-
-        remoteVideo.srcObject =
-          event.streams[0];
-
-      } else {
-
-        let stream =
-          remoteVideo.srcObject;
-
-        if (!stream) {
-          stream =
-            new MediaStream();
-
-          remoteVideo.srcObject =
-            stream;
-        }
-
-        event.track &&
-          stream.addTrack(
-            event.track
-          );
-      }
-
-
-      remoteVideo.autoplay =
-        true;
-
-      remoteVideo.playsInline =
-        true;
-
+      remoteVideo.srcObject =
+        event.streams[0];
 
       try {
-        await remoteVideo.play();
+        remoteVideo.play();
       } catch (error) {
         console.warn(
-          "[VIDEO] Remote play:",
+          "Remote video play:",
           error
         );
       }
 
-
-      isConnected = true;
-      isSearching = false;
-
-      setStatus(
-        "Connected"
-      );
-
-      startTimer();
-
-
-      if (
-        socket &&
-        socket.connected &&
-        currentMatchId
-      ) {
-
-        socket.emit(
-          "webrtc-connected",
-          {
-            matchId:
-              currentMatchId
-          }
-        );
-      }
+      markConnected();
     };
 
-
-  /*
-   * ICE candidates.
-   */
   peerConnection.onicecandidate =
     (event) => {
 
       if (
         !event.candidate ||
         !socket ||
-        !socket.connected ||
         !currentMatchId
       ) {
         return;
       }
-
 
       socket.emit(
         "webrtc-ice-candidate",
         {
           matchId:
             currentMatchId,
-
           candidate:
             event.candidate
         }
       );
     };
 
-
-  /*
-   * Connection state.
-   */
   peerConnection.onconnectionstatechange =
     () => {
 
@@ -1472,68 +988,45 @@ async function createPeerConnection() {
         return;
       }
 
-
       const state =
         peerConnection.connectionState;
 
-
       console.log(
-        "[WEBRTC] Connection state:",
+        "Peer connection:",
         state
       );
 
-
-      if (
-        state === "connected"
-      ) {
-
-        isConnected = true;
-        isSearching = false;
-
-        setStatus(
-          "Connected"
-        );
-
-        startTimer();
-
-
-        if (
-          socket &&
-          socket.connected &&
-          currentMatchId
-        ) {
-
-          socket.emit(
-            "webrtc-connected",
-            {
-              matchId:
-                currentMatchId
-            }
-          );
-        }
+      if (state === "connected") {
+        markConnected();
       }
-
 
       if (
         state === "failed" ||
         state === "closed"
       ) {
 
-        isConnected = false;
+        if (!isSearching &&
+            isMatched &&
+            !isConnected) {
 
-        stopTimer();
+          setStatus(
+            "Connection failed"
+          );
+        }
 
-        console.warn(
-          "[WEBRTC] Connection ended:",
-          state
+        clearCallTimer();
+      }
+
+      if (
+        state === "disconnected" &&
+        isConnected
+      ) {
+        setStatus(
+          "Connection unstable..."
         );
       }
     };
 
-
-  /*
-   * ICE connection state.
-   */
   peerConnection.oniceconnectionstatechange =
     () => {
 
@@ -1541,76 +1034,95 @@ async function createPeerConnection() {
         return;
       }
 
-
       console.log(
-        "[WEBRTC] ICE:",
+        "ICE state:",
         peerConnection.iceConnectionState
       );
     };
 
-
   return peerConnection;
 }
 
+/* -----------------------------------------
+   CONNECTED
+----------------------------------------- */
 
-// ======================================================
-// CREATE OFFER
-// ======================================================
+function markConnected() {
 
-async function createOffer() {
-
-  if (
-    !peerConnection ||
-    !socket ||
-    !socket.connected ||
-    !currentMatchId
-  ) {
+  if (isConnected) {
     return;
   }
 
+  isConnected = true;
+  isSearching = false;
+  isMatched = true;
 
-  console.log(
-    "[WEBRTC] Creating offer..."
-  );
+  setConnectedUI();
 
+  if (socket &&
+      currentMatchId) {
 
-  const offer =
-    await peerConnection.createOffer(
+    socket.emit(
+      "webrtc-connected",
       {
+        matchId:
+          currentMatchId
+      }
+    );
+  }
+}
+
+/* -----------------------------------------
+   OFFER
+----------------------------------------- */
+
+async function createOffer() {
+
+  if (!peerConnection ||
+      !socket ||
+      !currentMatchId) {
+    return;
+  }
+
+  try {
+
+    const offer =
+      await peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
+      });
+
+    await peerConnection.setLocalDescription(
+      offer
+    );
+
+    if (!isConnected) {
+      setStatus("Calling...");
+    }
+
+    socket.emit(
+      "webrtc-offer",
+      {
+        matchId:
+          currentMatchId,
+        offer
       }
     );
 
+  } catch (error) {
 
-  await peerConnection.setLocalDescription(
-    offer
-  );
-
-
-  socket.emit(
-    "webrtc-offer",
-    {
-      matchId:
-        currentMatchId,
-
-      offer:
-        peerConnection.localDescription
-    }
-  );
-
-
-  setStatus(
-    "Calling..."
-  );
+    console.error(
+      "Create offer error:",
+      error
+    );
+  }
 }
 
+/* -----------------------------------------
+   ICE
+----------------------------------------- */
 
-// ======================================================
-// ICE QUEUE
-// ======================================================
-
-async function flushPendingIceCandidates() {
+async function flushIceCandidates() {
 
   if (
     !peerConnection ||
@@ -1619,52 +1131,34 @@ async function flushPendingIceCandidates() {
     return;
   }
 
-
-  if (
-    !pendingIceCandidates.length
+  while (
+    iceCandidateQueue.length
   ) {
-    return;
-  }
 
-
-  const candidates =
-    [...pendingIceCandidates];
-
-
-  pendingIceCandidates = [];
-
-
-  for (
-    const candidate of candidates
-  ) {
+    const candidate =
+      iceCandidateQueue.shift();
 
     try {
 
       await peerConnection.addIceCandidate(
-        new RTCIceCandidate(
-          candidate
-        )
+        candidate
       );
 
     } catch (error) {
 
       console.warn(
-        "[WEBRTC] Queued ICE error:",
+        "Queued ICE error:",
         error
       );
     }
   }
 }
 
-
-// ======================================================
-// CLEANUP PEER
-// ======================================================
+/* -----------------------------------------
+   CLEANUP
+----------------------------------------- */
 
 function cleanupPeer() {
-
-  stopTimer();
-
 
   if (peerConnection) {
 
@@ -1672,125 +1166,210 @@ function cleanupPeer() {
       peerConnection.ontrack = null;
       peerConnection.onicecandidate = null;
       peerConnection.onconnectionstatechange = null;
-      peerConnection.oniceconnectionstatechange = null;
-
       peerConnection.close();
-
     } catch (error) {
       console.warn(
-        "[WEBRTC] Cleanup:",
+        "Peer cleanup:",
         error
       );
     }
-
-    peerConnection = null;
   }
 
+  peerConnection = null;
 
-  pendingIceCandidates = [];
-
+  iceCandidateQueue = [];
 
   if (remoteVideo) {
-
     try {
-      remoteVideo.pause();
+      remoteVideo.srcObject = null;
     } catch (error) {}
-
-    remoteVideo.srcObject = null;
   }
 }
 
-
-// ======================================================
-// NEXT USER
-// ======================================================
+/* -----------------------------------------
+   NEXT USER
+   No button.
+   Called by swipe.
+----------------------------------------- */
 
 function nextUser() {
 
-  console.log(
-    "[ACTION] Next user"
-  );
-
-
-  stopSearchAnimation();
+  if (!socket ||
+      !socket.connected) {
+    return;
+  }
 
   cleanupPeer();
 
+  clearCallTimer();
 
-  currentMatchId = null;
-  currentPartnerId = null;
-
-  isSearching = false;
-  isMatched = false;
   isConnected = false;
+  isMatched = false;
+  isSearching = true;
 
-  resetTimer();
+  currentPartnerId = null;
+  currentMatchId = null;
 
+  reportSubmitted = false;
 
-  if (
-    socket &&
-    socket.connected
-  ) {
+  resetChatBox();
 
-    setStatus(
-      "Finding next person..."
-    );
-
-    socket.emit(
-      "next-user"
-    );
-
-  } else {
-
-    startSearching();
+  if (likeButton) {
+    likeButton.disabled = true;
   }
+
+  if (reportButton) {
+    reportButton.disabled = true;
+  }
+
+  setSearchingUI();
+
+  socket.emit(
+    "next-user"
+  );
 }
 
+/* -----------------------------------------
+   SWIPE
+----------------------------------------- */
 
-// ======================================================
-// END CHAT
-// ======================================================
+function setupSwipe() {
+
+  if (!videoArea) {
+    return;
+  }
+
+  videoArea.addEventListener(
+    "touchstart",
+    (event) => {
+
+      if (!event.touches ||
+          !event.touches[0]) {
+        return;
+      }
+
+      const touch =
+        event.touches[0];
+
+      touchStartX =
+        touch.clientX;
+
+      touchStartY =
+        touch.clientY;
+
+      touchStartTime =
+        Date.now();
+    },
+    {
+      passive: true
+    }
+  );
+
+  videoArea.addEventListener(
+    "touchend",
+    (event) => {
+
+      if (!event.changedTouches ||
+          !event.changedTouches[0]) {
+        return;
+      }
+
+      const touch =
+        event.changedTouches[0];
+
+      const deltaX =
+        touch.clientX -
+        touchStartX;
+
+      const deltaY =
+        touch.clientY -
+        touchStartY;
+
+      const elapsed =
+        Date.now() -
+        touchStartTime;
+
+      const absX =
+        Math.abs(deltaX);
+
+      const absY =
+        Math.abs(deltaY);
+
+      /*
+       * Horizontal swipe only.
+       * Minimum 80px.
+       */
+      if (
+        absX >= 80 &&
+        absX > absY * 1.2 &&
+        elapsed < 1000
+      ) {
+
+        /*
+         * Swipe left or right:
+         * both mean next person.
+         */
+        if (
+          isMatched ||
+          isConnected
+        ) {
+          nextUser();
+        }
+      }
+    },
+    {
+      passive: true
+    }
+  );
+}
+
+/* -----------------------------------------
+   END CHAT
+----------------------------------------- */
 
 function endChat() {
 
-  console.log(
-    "[ACTION] End chat"
-  );
-
-
-  stopSearchAnimation();
-
-  cleanupPeer();
-
-
-  if (
-    socket &&
-    socket.connected
-  ) {
+  if (socket &&
+      socket.connected) {
 
     socket.emit(
-      "end-chat"
+      "end-chat",
+      {
+        matchId:
+          currentMatchId
+      }
     );
   }
 
+  cleanupPeer();
 
-  currentMatchId = null;
-  currentPartnerId = null;
+  clearCallTimer();
 
   isSearching = false;
   isMatched = false;
   isConnected = false;
 
+  currentPartnerId = null;
+  currentMatchId = null;
+
+  resetChatBox();
+
+  if (likeButton) {
+    likeButton.disabled = true;
+  }
+
+  if (reportButton) {
+    reportButton.disabled = true;
+  }
 
   setStatus(
-    "Chat ended."
+    "Chat ended"
   );
 }
 
-
-// ======================================================
-// CAMERA / MIC CONTROLS
-// ======================================================
+/* -----------------------------------------
+   CAMERA
+----------------------------------------- */
 
 function toggleCamera() {
 
@@ -1798,28 +1377,57 @@ function toggleCamera() {
     return;
   }
 
-
-  const tracks =
+  const videoTracks =
     localStream.getVideoTracks();
 
-
-  if (!tracks.length) {
+  if (!videoTracks.length) {
     return;
   }
 
+  cameraEnabled =
+    !cameraEnabled;
 
-  const enabled =
-    !tracks[0].enabled;
-
-
-  tracks.forEach(
+  videoTracks.forEach(
     (track) => {
       track.enabled =
-        enabled;
+        cameraEnabled;
     }
   );
+
+  if (cameraButton) {
+
+    if (cameraEnabled) {
+
+      cameraButton.textContent =
+        "📷";
+
+      cameraButton.classList.add(
+        "active"
+      );
+
+      cameraButton.classList.remove(
+        "camera-off"
+      );
+
+    } else {
+
+      cameraButton.textContent =
+        "🚫";
+
+      cameraButton.classList.remove(
+        "active"
+      );
+
+      cameraButton.classList.add(
+        "camera-off"
+      );
+    }
+  }
 }
 
+/* -----------------------------------------
+   MICROPHONE
+----------------------------------------- */
 
 function toggleMicrophone() {
 
@@ -1827,202 +1435,516 @@ function toggleMicrophone() {
     return;
   }
 
-
-  const tracks =
+  const audioTracks =
     localStream.getAudioTracks();
 
-
-  if (!tracks.length) {
+  if (!audioTracks.length) {
     return;
   }
 
+  microphoneEnabled =
+    !microphoneEnabled;
 
-  const enabled =
-    !tracks[0].enabled;
-
-
-  tracks.forEach(
+  audioTracks.forEach(
     (track) => {
       track.enabled =
-        enabled;
+        microphoneEnabled;
     }
   );
+
+  if (micButton) {
+
+    micButton.textContent =
+      microphoneEnabled
+        ? "🎤"
+        : "🔇";
+  }
 }
 
-
-// ======================================================
-// COINS
-// ======================================================
+/* -----------------------------------------
+   COINS
+----------------------------------------- */
 
 function openCoins() {
+
   window.location.href =
-    "./profile.html";
+    "profile.html";
 }
 
+/* -----------------------------------------
+   REPORT
+----------------------------------------- */
 
-// ======================================================
-// BUTTON EVENTS
-// ======================================================
+async function reportCurrentUser() {
 
-function setupButtons() {
-
-  /*
-   * Next / Cut
-   */
-  const nextButtons =
-    document.querySelectorAll(
-      "#nextBtn, #nextButton, .next-btn, [data-action='next'], [data-next]"
+  if (
+    !currentPartnerId ||
+    !currentMatchId
+  ) {
+    setStatus(
+      "No person to report"
     );
+    return;
+  }
 
+  if (reportSubmitted) {
+    return;
+  }
 
-  nextButtons.forEach(
-    (button) => {
+  const auth =
+    getAuthData();
 
-      button.addEventListener(
-        "click",
-        nextUser
-      );
-
-    }
-  );
-
-
-  /*
-   * End / Cut
-   */
-  const endButtons =
-    document.querySelectorAll(
-      "#cutBtn, #endBtn, #endChatBtn, .cut-btn, [data-action='end']"
+  if (!auth.userId) {
+    setStatus(
+      "Unable to identify your account"
     );
+    return;
+  }
 
+  if (reportButton) {
+    reportButton.disabled = true;
+  }
 
-  endButtons.forEach(
-    (button) => {
-
-      button.addEventListener(
-        "click",
-        endChat
-      );
-
-    }
-  );
-
-
-  /*
-   * Camera
-   */
-  const cameraButtons =
-    document.querySelectorAll(
-      "#cameraBtn, #cameraButton, [data-action='camera']"
-    );
-
-
-  cameraButtons.forEach(
-    (button) => {
-
-      button.addEventListener(
-        "click",
-        toggleCamera
-      );
-
-    }
-  );
-
-
-  /*
-   * Microphone
-   */
-  const micButtons =
-    document.querySelectorAll(
-      "#micBtn, #micButton, [data-action='mic'], [data-action='microphone']"
-    );
-
-
-  micButtons.forEach(
-    (button) => {
-
-      button.addEventListener(
-        "click",
-        toggleMicrophone
-      );
-
-    }
-  );
-
-
-  /*
-   * Coins
-   */
-  const coinButtons =
-    document.querySelectorAll(
-      "#coinBtn, #coinsBtn, #coinButton, [data-action='coins']"
-    );
-
-
-  coinButtons.forEach(
-    (button) => {
-
-      button.addEventListener(
-        "click",
-        openCoins
-      );
-
-    }
-  );
-}
-
-
-// ======================================================
-// INITIALIZE
-// ======================================================
-
-async function initializeChat() {
-
-  console.log(
-    "========================================"
-  );
-
-  console.log(
-    "VizoChat Chat Initializing..."
-  );
-
-  console.log(
-    "========================================"
-  );
-
-
-  getElements();
-
-  setupButtons();
-
-
-  resetTimer();
-
-
-  /*
-   * Show local media and start search.
-   */
   try {
 
-    await startSearching();
+    const headers = {
+      "Content-Type":
+        "application/json"
+    };
+
+    if (auth.token) {
+      headers.Authorization =
+        `Bearer ${auth.token}`;
+    }
+
+    const response =
+      await fetch(
+        `${VIZO_API}/reports`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            reporterId:
+              auth.userId,
+
+            reportedUserId:
+              currentPartnerId,
+
+            matchId:
+              currentMatchId,
+
+            reason:
+              "Other"
+          })
+        }
+      );
+
+    let data = null;
+
+    try {
+      data =
+        await response.json();
+    } catch (error) {
+      data = null;
+    }
+
+    if (
+      !response.ok ||
+      !data ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data?.message ||
+        "Unable to submit report."
+      );
+    }
+
+    reportSubmitted = true;
+
+    setStatus(
+      "Report submitted"
+    );
 
   } catch (error) {
 
     console.error(
-      "[INIT] Error:",
+      "Report error:",
       error
     );
 
+    reportSubmitted = false;
+
     setStatus(
-      "Unable to start chat."
+      error.message ||
+      "Report failed"
+    );
+
+    if (reportButton) {
+      reportButton.disabled =
+        !currentPartnerId;
+    }
+  }
+}
+
+/* -----------------------------------------
+   CHAT
+----------------------------------------- */
+
+function openChatBox() {
+
+  if (!chatPanel) {
+    return;
+  }
+
+  if (!isConnected) {
+    setStatus(
+      "Connect with someone first"
+    );
+    return;
+  }
+
+  chatPanel.classList.add(
+    "open"
+  );
+
+  enableChat();
+
+  setTimeout(() => {
+
+    if (chatInput) {
+      chatInput.focus();
+    }
+
+  }, 100);
+}
+
+function closeChatBox() {
+
+  if (!chatPanel) {
+    return;
+  }
+
+  chatPanel.classList.remove(
+    "open"
+  );
+}
+
+function enableChat() {
+
+  if (chatInput) {
+    chatInput.disabled = false;
+  }
+
+  if (chatSendButton) {
+    chatSendButton.disabled = false;
+  }
+}
+
+function disableChat() {
+
+  if (chatInput) {
+    chatInput.disabled = true;
+  }
+
+  if (chatSendButton) {
+    chatSendButton.disabled = true;
+  }
+}
+
+function resetChatBox() {
+
+  if (chatMessages) {
+    chatMessages.innerHTML = "";
+
+    if (chatEmpty) {
+      chatMessages.appendChild(
+        chatEmpty
+      );
+    } else {
+
+      const empty =
+        document.createElement(
+          "div"
+        );
+
+      empty.className =
+        "chat-empty";
+
+      empty.textContent =
+        "Say hello 👋";
+
+      chatMessages.appendChild(
+        empty
+      );
+    }
+  }
+
+  closeChatBox();
+
+  disableChat();
+}
+
+function appendChatMessage(
+  message,
+  type
+) {
+
+  if (!chatMessages) {
+    return;
+  }
+
+  if (chatEmpty &&
+      chatEmpty.parentNode === chatMessages) {
+    chatEmpty.remove();
+  }
+
+  const element =
+    document.createElement("div");
+
+  element.className =
+    `chat-message ${type}`;
+
+  /*
+   * textContent is intentional.
+   * It prevents HTML/script injection.
+   */
+  element.textContent =
+    message;
+
+  chatMessages.appendChild(
+    element
+  );
+
+  chatMessages.scrollTop =
+    chatMessages.scrollHeight;
+}
+
+function sendChatMessage() {
+
+  if (
+    !socket ||
+    !socket.connected ||
+    !currentMatchId ||
+    !isConnected
+  ) {
+    return;
+  }
+
+  if (!chatInput) {
+    return;
+  }
+
+  const message =
+    chatInput.value.trim();
+
+  if (!message) {
+    return;
+  }
+
+  const safeMessage =
+    message.slice(0, 500);
+
+  socket.emit(
+    "chat-message",
+    {
+      matchId:
+        currentMatchId,
+
+      message:
+        safeMessage
+    }
+  );
+
+  appendChatMessage(
+    safeMessage,
+    "me"
+  );
+
+  chatInput.value = "";
+
+  chatInput.focus();
+}
+
+/* -----------------------------------------
+   TIMER
+----------------------------------------- */
+
+function startCallTimer() {
+
+  clearCallTimer();
+
+  callSeconds = 0;
+
+  updateCallTimer();
+
+  callTimer =
+    setInterval(() => {
+
+      callSeconds++;
+
+      updateCallTimer();
+
+    }, 1000);
+}
+
+function clearCallTimer() {
+
+  if (callTimer) {
+    clearInterval(callTimer);
+    callTimer = null;
+  }
+
+  callSeconds = 0;
+
+  updateCallTimer();
+}
+
+function updateCallTimer() {
+
+  if (!timerElement) {
+    return;
+  }
+
+  const minutes =
+    Math.floor(
+      callSeconds / 60
+    )
+      .toString()
+      .padStart(2, "0");
+
+  const seconds =
+    (callSeconds % 60)
+      .toString()
+      .padStart(2, "0");
+
+  timerElement.textContent =
+    `${minutes}:${seconds}`;
+}
+
+/* -----------------------------------------
+   BUTTONS
+----------------------------------------- */
+
+function setupButtons() {
+
+  if (reportButton) {
+
+    reportButton.addEventListener(
+      "click",
+      reportCurrentUser
+    );
+  }
+
+  if (chatButton) {
+
+    chatButton.addEventListener(
+      "click",
+      () => {
+
+        if (
+          chatPanel &&
+          chatPanel.classList.contains(
+            "open"
+          )
+        ) {
+          closeChatBox();
+        } else {
+          openChatBox();
+        }
+      }
+    );
+  }
+
+  if (chatCloseButton) {
+
+    chatCloseButton.addEventListener(
+      "click",
+      closeChatBox
+    );
+  }
+
+  if (chatForm) {
+
+    chatForm.addEventListener(
+      "submit",
+      (event) => {
+
+        event.preventDefault();
+
+        sendChatMessage();
+      }
+    );
+  }
+
+  if (cameraButton) {
+
+    cameraButton.addEventListener(
+      "click",
+      toggleCamera
+    );
+  }
+
+  if (micButton) {
+
+    micButton.addEventListener(
+      "click",
+      toggleMicrophone
+    );
+  }
+
+  if (coinButton) {
+
+    coinButton.addEventListener(
+      "click",
+      openCoins
     );
   }
 }
 
+/* -----------------------------------------
+   INITIALIZE
+----------------------------------------- */
 
-// ======================================================
-// PAGE EXIT
-// ======================================================
+async function initializeChat() {
+
+  if (initialized) {
+    return;
+  }
+
+  initialized = true;
+
+  setupButtons();
+  setupSwipe();
+
+  try {
+
+    setStatus(
+      "Starting camera..."
+    );
+
+    await requestMedia();
+
+    await connectSocket();
+
+    startSearching();
+
+  } catch (error) {
+
+    console.error(
+      "Chat initialization error:",
+      error
+    );
+
+    setStatus(
+      "Unable to start chat"
+    );
+  }
+}
+
+/* -----------------------------------------
+   BEFORE UNLOAD
+----------------------------------------- */
 
 window.addEventListener(
   "beforeunload",
@@ -2032,45 +1954,36 @@ window.addEventListener(
 
       if (
         socket &&
-        socket.connected
+        socket.connected &&
+        currentMatchId
       ) {
-
         socket.emit(
-          "end-chat"
+          "end-chat",
+          {
+            matchId:
+              currentMatchId
+          }
         );
       }
 
     } catch (error) {}
-
-
-    try {
-
-      if (socket) {
-        socket.disconnect();
-      }
-
-    } catch (error) {}
-
 
     if (localStream) {
 
       localStream
         .getTracks()
         .forEach(
-          (track) => {
-            track.stop();
-          }
+          (track) => track.stop()
         );
-
-      localStream = null;
     }
+
+    cleanupPeer();
   }
 );
 
-
-// ======================================================
-// PUBLIC API
-// ======================================================
+/* -----------------------------------------
+   PUBLIC API
+----------------------------------------- */
 
 window.VizoChat = {
 
@@ -2086,12 +1999,27 @@ window.VizoChat = {
 
   openCoins,
 
+  reportCurrentUser,
+
+  openChatBox,
+
+  closeChatBox,
+
+  sendChatMessage,
+
   getAuthData,
 
-  getSocket: () => socket,
+  getSocket: () =>
+    socket,
 
   getMatchId: () =>
     currentMatchId,
+
+  getCurrentMatchId: () =>
+    currentMatchId,
+
+  getCurrentPartnerId: () =>
+    currentPartnerId,
 
   isSearching: () =>
     isSearching,
@@ -2103,10 +2031,9 @@ window.VizoChat = {
     isConnected
 };
 
-
-// ======================================================
-// DOM READY
-// ======================================================
+/* -----------------------------------------
+   START
+----------------------------------------- */
 
 if (
   document.readyState ===
