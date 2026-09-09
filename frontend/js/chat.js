@@ -276,8 +276,10 @@ function setCameraStartingUI() {
 ----------------------------------------- */
 
 async function requestMedia() {
-  if (!navigator.mediaDevices ||
-      !navigator.mediaDevices.getUserMedia) {
+  if (
+    !navigator.mediaDevices ||
+    !navigator.mediaDevices.getUserMedia
+  ) {
     throw new Error(
       "Camera and microphone are not supported."
     );
@@ -286,11 +288,62 @@ async function requestMedia() {
   setCameraStartingUI();
 
   try {
+    /*
+     * Request CAMERA first.
+     *
+     * This uses the browser's native permission system.
+     * If camera permission is already allowed, the browser
+     * will start the camera without showing a new prompt.
+     */
+    let videoStream = null;
+
+    try {
+      videoStream =
+        await navigator.mediaDevices.getUserMedia({
+          video: true
+        });
+    } catch (cameraError) {
+      console.error(
+        "Camera permission/error:",
+        cameraError
+      );
+
+      setStatus(
+        "Camera permission required"
+      );
+
+      if (localPlaceholder) {
+        const title =
+          localPlaceholder.querySelector(
+            ".placeholder-title"
+          );
+
+        const text =
+          localPlaceholder.querySelector(
+            ".placeholder-text"
+          );
+
+        if (title) {
+          title.textContent =
+            "Camera access needed";
+        }
+
+        if (text) {
+          text.textContent =
+            "Allow camera access in your browser, then reload the page.";
+        }
+      }
+
+      throw cameraError;
+    }
+
+    /*
+     * Attach the camera immediately.
+     *
+     * Camera no longer waits for microphone permission.
+     */
     localStream =
-      await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
+      videoStream;
 
     if (localVideo) {
       localVideo.srcObject =
@@ -307,19 +360,71 @@ async function requestMedia() {
     }
 
     cameraEnabled = true;
-    microphoneEnabled = true;
 
     if (cameraButton) {
       cameraButton.classList.add("active");
+
       cameraButton.classList.remove(
         "camera-off"
       );
-      cameraButton.textContent = "📷";
+
+      cameraButton.textContent =
+        "📷";
     }
 
     if (localPlaceholder) {
       localPlaceholder.classList.add(
         "hidden"
+      );
+    }
+
+    /*
+     * Request MICROPHONE separately.
+     *
+     * This is still the browser's native permission system.
+     * If microphone permission is already allowed, no new
+     * browser popup is shown.
+     */
+    try {
+      const audioStream =
+        await navigator.mediaDevices.getUserMedia({
+          audio: true
+        });
+
+      const audioTracks =
+        audioStream.getAudioTracks();
+
+      audioTracks.forEach((track) => {
+        localStream.addTrack(track);
+      });
+
+      microphoneEnabled = true;
+
+      /*
+       * The temporary audio-only stream has now been merged
+       * into localStream, so its tracks must not be stopped.
+       */
+    } catch (microphoneError) {
+      /*
+       * Camera is already working.
+       *
+       * Do NOT destroy the camera if microphone permission
+       * is denied or unavailable.
+       */
+      console.warn(
+        "Microphone permission/error:",
+        microphoneError
+      );
+
+      microphoneEnabled = false;
+
+      if (micButton) {
+        micButton.textContent =
+          "🔇";
+      }
+
+      console.warn(
+        "VizoChat: Camera started, but microphone is unavailable."
       );
     }
 
@@ -331,29 +436,33 @@ async function requestMedia() {
       error
     );
 
-    setStatus(
-      "Camera/microphone permission required"
-    );
+    if (
+      !localStream
+    ) {
+      setStatus(
+        "Camera permission required"
+      );
 
-    if (localPlaceholder) {
-      const title =
-        localPlaceholder.querySelector(
-          ".placeholder-title"
-        );
+      if (localPlaceholder) {
+        const title =
+          localPlaceholder.querySelector(
+            ".placeholder-title"
+          );
 
-      const text =
-        localPlaceholder.querySelector(
-          ".placeholder-text"
-        );
+        const text =
+          localPlaceholder.querySelector(
+            ".placeholder-text"
+          );
 
-      if (title) {
-        title.textContent =
-          "Camera access needed";
-      }
+        if (title) {
+          title.textContent =
+            "Camera access needed";
+        }
 
-      if (text) {
-        text.textContent =
-          "Allow camera and microphone permission, then reload the page.";
+        if (text) {
+          text.textContent =
+            "Allow camera access in your browser, then reload the page.";
+        }
       }
     }
 
