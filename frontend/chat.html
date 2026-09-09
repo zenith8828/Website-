@@ -1,25 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-
+  <meta charset="UTF-8" />
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-  >
-
-  <meta
-    name="description"
-    content="VizoChat random 1-to-1 video chat"
-  >
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
 
   <title>VizoChat - Random Video Chat</title>
 
-  <link rel="stylesheet" href="./css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=12" />
 
   <style>
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html,
@@ -29,909 +24,540 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: #020617;
+      background: #050816;
+      color: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
     body {
-      position: fixed;
-      inset: 0;
+      touch-action: pan-y;
     }
-
-    /* =========================================
-       PAGE
-    ========================================== */
 
     .chat-page {
       width: 100%;
       height: 100dvh;
-      min-height: 100dvh;
-
-      display: flex;
-      flex-direction: column;
-
+      min-height: 100vh;
+      position: relative;
       overflow: hidden;
-
       background:
-        radial-gradient(
-          circle at 50% 0%,
-          rgba(30, 64, 175, 0.18),
-          transparent 45%
-        ),
-        #020617;
+        radial-gradient(circle at 20% 20%, rgba(0, 204, 255, 0.08), transparent 30%),
+        radial-gradient(circle at 80% 70%, rgba(255, 0, 170, 0.08), transparent 30%),
+        #050816;
     }
-
-    /* =========================================
-       MAIN
-    ========================================== */
 
     .chat-main {
       width: 100%;
-
-      flex: 1;
-
-      min-height: 0;
-
-      overflow: hidden;
-
-      padding:
-        6px
-        8px
-        env(safe-area-inset-bottom, 0px);
-
-      display: flex;
-
-      flex-direction: column;
+      height: 100%;
+      position: relative;
     }
-
-    /* =========================================
-       VIDEO AREA
-    ========================================== */
 
     .video-area {
       width: 100%;
-
       height: 100%;
-
-      min-height: 0;
-
       position: relative;
-
+      padding: 10px;
       overflow: hidden;
-
-      display: flex;
-
-      flex-direction: column;
+      touch-action: pan-y;
     }
-
-    /* =========================================
-       VIDEO GRID
-    ========================================== */
 
     .video-grid {
       width: 100%;
-
       height: 100%;
-
-      min-height: 0;
-
-      flex: 1;
-
       display: flex;
-
       flex-direction: column;
-
-      gap: 4px;
-
-      overflow: hidden;
+      gap: 10px;
     }
-
-    /* =========================================
-       VIDEO BOX
-    ========================================== */
 
     .video-box {
-      width: 100%;
-
-      height: calc(
-        (100% - 4px) / 2
-      );
-
-      min-height: 0;
-
-      flex: 0 0 calc(
-        (100% - 4px) / 2
-      );
-
       position: relative;
-
-      overflow: hidden;
-
-      border-radius: 18px;
-
-      background:
-        radial-gradient(
-          circle at 50% 40%,
-          #0b122d,
-          #020617 75%
-        );
-
-      box-shadow:
-        0 0 0 2px #168cff,
-        0 0 14px rgba(37, 99, 235, 0.65),
-        0 0 24px rgba(168, 85, 247, 0.30);
-    }
-
-    /* =========================================
-       NEON BORDER
-    ========================================== */
-
-    .video-box::before {
-      content: "";
-
-      position: absolute;
-
-      inset: 0;
-
-      border-radius: 18px;
-
-      padding: 2px;
-
-      background:
-        linear-gradient(
-          120deg,
-          #008cff,
-          #2563eb,
-          #7c3aed,
-          #ec4899
-        );
-
-      -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-
-      -webkit-mask-composite: xor;
-
-      mask-composite: exclude;
-
-      pointer-events: none;
-
-      z-index: 30;
-    }
-
-    /* =========================================
-       VIDEO
-    ========================================== */
-
-    .video-box video {
-      position: absolute;
-
-      inset: 0;
-
       width: 100%;
-
-      height: 100%;
-
+      height: calc(50% - 5px);
       min-height: 0;
-
-      display: block;
-
-      object-fit: cover;
-
-      background: #020617;
-
-      z-index: 1;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #080d1f;
+      border: 2px solid rgba(0, 204, 255, 0.85);
+      box-shadow:
+        0 0 10px rgba(0, 204, 255, 0.65),
+        inset 0 0 20px rgba(0, 204, 255, 0.05);
     }
 
-    /* =========================================
-       PLACEHOLDER
-    ========================================== */
+    .video-box.remote {
+      border-color: rgba(0, 204, 255, 0.9);
+      box-shadow:
+        0 0 14px rgba(0, 204, 255, 0.7),
+        inset 0 0 20px rgba(0, 204, 255, 0.06);
+    }
+
+    .video-box.local {
+      border-color: rgba(255, 0, 180, 0.9);
+      box-shadow:
+        0 0 14px rgba(255, 0, 180, 0.65),
+        inset 0 0 20px rgba(255, 0, 180, 0.06);
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      background: #080d1f;
+    }
+
+    #localVideo {
+      transform: scaleX(-1);
+    }
 
     .video-placeholder {
       position: absolute;
-
       inset: 0;
-
       display: flex;
-
       align-items: center;
       justify-content: center;
-
+      flex-direction: column;
+      gap: 10px;
       text-align: center;
-
-      color: #94a3b8;
-
       padding: 20px;
-
-      pointer-events: none;
-
-      z-index: 5;
+      color: #dce8ff;
+      background:
+        radial-gradient(circle at center, rgba(0, 204, 255, 0.08), transparent 55%),
+        #080d1f;
+      z-index: 2;
     }
 
     .video-placeholder.hidden {
       display: none;
     }
 
-    /* =========================================
-       VIZOCHAT / YOU LABEL
-    ========================================== */
+    .placeholder-icon {
+      font-size: 38px;
+      filter: drop-shadow(0 0 10px rgba(0, 204, 255, 0.7));
+    }
 
-    .video-label {
-      position: absolute;
-
-      left: 13px;
-
-      bottom: 10px;
-
-      z-index: 60;
-
-      display: flex;
-
-      align-items: center;
-
-      gap: 8px;
-
-      color: #ffffff;
-
-      font-size: 17px;
-
+    .placeholder-title {
+      font-size: 16px;
       font-weight: 700;
-
-      text-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.9);
     }
 
-    .video-label-logo {
-      width: 40px;
-      height: 40px;
-
-      display: flex;
-
-      align-items: center;
-      justify-content: center;
-
-      border-radius: 11px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #22d3ee,
-          #2563eb,
-          #ec4899
-        );
-
-      box-shadow:
-        0 0 15px rgba(59, 130, 246, 0.7);
+    .placeholder-text {
+      color: #8e9bb9;
+      font-size: 13px;
+      max-width: 260px;
+      line-height: 1.5;
     }
-
-    .video-label-logo::after {
-      content: "V";
-
-      color: #ffffff;
-
-      font-size: 26px;
-
-      font-weight: 900;
-    }
-
-    /* =========================================
-       CUT + REPORT
-    ========================================== */
 
     .top-actions {
       position: absolute;
-
-      top: 9px;
-
-      right: 9px;
-
-      z-index: 100;
-
-      height: 50px;
-
+      top: 12px;
+      right: 12px;
       display: flex;
-
-      align-items: center;
-
-      padding: 0 6px;
-
-      border:
-        2px solid #4338ca;
-
-      border-radius: 28px;
-
-      background:
-        rgba(2, 6, 23, 0.88);
-
-      box-shadow:
-        0 0 14px rgba(37, 99, 235, 0.45);
-
-      backdrop-filter: blur(10px);
+      gap: 8px;
+      z-index: 10;
     }
 
-    .top-action-button {
-      height: 40px;
-
+    .action-button {
+      min-width: 42px;
+      height: 42px;
       padding: 0 13px;
-
-      border: 0;
-
-      background: transparent;
-
-      color: #ffffff;
-
-      font-size: 15px;
-
-      font-weight: 700;
-
-      cursor: pointer;
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: center;
-
-      gap: 6px;
-    }
-
-    .top-action-button:disabled {
-      opacity: 1;
-
-      cursor: pointer;
-    }
-
-    .report-action {
-      border-left:
-        2px solid #334155;
-
-      margin-left: 3px;
-
-      padding-left: 14px;
-    }
-
-    /* =========================================
-       LIKE BUTTON
-    ========================================== */
-
-    .like-floating {
-      position: absolute;
-
-      right: 13px;
-
-      bottom: 10px;
-
-      width: 60px;
-      height: 60px;
-
-      z-index: 100;
-
-      border-radius: 50%;
-
-      border:
-        2px solid #ec4899;
-
-      background:
-        radial-gradient(
-          circle,
-          #f43f5e,
-          #db2777 70%
-        );
-
-      color: #ffffff;
-
-      font-size: 30px;
-
-      display: flex;
-
-      align-items: center;
-      justify-content: center;
-
-      cursor: pointer;
-
-      box-shadow:
-        0 0 16px rgba(236, 72, 153, 0.8),
-        0 0 28px rgba(244, 63, 94, 0.35);
-    }
-
-    .like-floating:disabled {
-      opacity: 1;
-
-      cursor: pointer;
-    }
-
-    /* =========================================
-       LIKE TIMER
-    ========================================== */
-
-    #likeValidationTimer {
-      position: absolute;
-
-      top: 68px;
-
-      left: 11px;
-
-      z-index: 150;
-
-      padding: 8px 12px;
-
-      border-radius: 10px;
-
-      color: #ffffff;
-
-      background:
-        rgba(2, 6, 23, 0.92);
-
-      border:
-        1px solid #7c3aed;
-
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      color: #fff;
+      background: rgba(5, 8, 22, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       font-size: 13px;
-
       font-weight: 700;
-
-      box-shadow:
-        0 0 12px rgba(124, 58, 237, 0.45);
+      cursor: pointer;
+      transition: 0.2s ease;
     }
 
-    /* =========================================
-       STATUS
-    ========================================== */
+    .action-button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
 
-    .chat-status {
+    .report-button {
+      border-color: rgba(255, 80, 100, 0.55);
+      box-shadow: 0 0 10px rgba(255, 80, 100, 0.2);
+    }
+
+    .report-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .like-wrapper {
       position: absolute;
-
-      left: 50%;
-
-      bottom: 8px;
-
-      transform: translateX(-50%);
-
-      z-index: 80;
-
-      max-width: 45%;
-
-      padding: 5px 10px;
-
-      border-radius: 20px;
-
-      background:
-        rgba(2, 6, 23, 0.72);
-
-      color: #cbd5e1;
-
-      font-size: 10px;
-
-      text-align: center;
-
-      white-space: nowrap;
-
-      overflow: hidden;
-
-      text-overflow: ellipsis;
-
-      border:
-        1px solid rgba(59, 130, 246, 0.25);
-
-      pointer-events: none;
+      right: 14px;
+      bottom: 14px;
+      z-index: 10;
     }
 
-    /* =========================================
-       HIDE OLD ELEMENTS
-    ========================================== */
-
-    #timer,
-    #guestCounter {
-      display: none !important;
-    }
-
-    .site-footer {
-      display: none !important;
-    }
-
-    #micBtn {
-      display: none !important;
-    }
-
-    /* =========================================
-       CONTROLS INSIDE YOUR VIDEO BOX
-    ========================================== */
-
-    .your-video-controls {
-      position: absolute;
-
-      left: 11px;
-
-      bottom: 9px;
-
-      z-index: 100;
-
-      display: flex;
-
-      align-items: center;
-
-      gap: 14px;
-    }
-
-    .control-box {
-      width: 58px;
-      height: 58px;
-
-      min-width: 58px;
-      min-height: 58px;
-
+    #likeBtn {
+      width: 52px;
+      height: 52px;
+      border: 1px solid rgba(255, 70, 170, 0.8);
       border-radius: 50%;
+      color: #fff;
+      background: rgba(10, 8, 25, 0.82);
+      box-shadow:
+        0 0 12px rgba(255, 0, 180, 0.55),
+        inset 0 0 12px rgba(255, 0, 180, 0.08);
+      font-size: 23px;
+      cursor: pointer;
+    }
 
+    #likeBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .local-controls {
+      position: absolute;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      z-index: 20;
       display: flex;
-
       align-items: center;
       justify-content: center;
+      gap: 12px;
+      padding: 9px 12px;
+      border-radius: 18px;
+      background: rgba(4, 7, 20, 0.78);
+      border: 1px solid rgba(0, 204, 255, 0.25);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 0 18px rgba(0, 0, 0, 0.35);
+    }
 
-      border:
-        2px solid #2583ff;
-
-      background:
-        rgba(2, 6, 23, 0.88);
-
-      color: #ffffff;
-
-      font-size: 26px;
-
+    .control-button {
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      background: rgba(13, 18, 40, 0.9);
+      color: #fff;
+      font-size: 21px;
       cursor: pointer;
+      transition: 0.2s ease;
+    }
 
+    .control-button:hover {
+      transform: translateY(-2px);
+    }
+
+    .control-button.active {
+      border-color: rgba(0, 220, 255, 0.85);
+      box-shadow: 0 0 12px rgba(0, 220, 255, 0.45);
+    }
+
+    .control-button.camera-off {
+      border-color: rgba(255, 70, 100, 0.8);
+      box-shadow: 0 0 12px rgba(255, 70, 100, 0.35);
+    }
+
+    .control-button.coin {
+      border-color: rgba(255, 200, 60, 0.65);
+      box-shadow: 0 0 10px rgba(255, 200, 60, 0.2);
+    }
+
+    .status {
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      transform: translateX(-50%);
+      z-index: 15;
+      min-width: 150px;
+      max-width: calc(100% - 190px);
+      padding: 9px 16px;
+      text-align: center;
+      border-radius: 999px;
+      color: #dffaff;
+      background: rgba(4, 9, 25, 0.78);
+      border: 1px solid rgba(0, 204, 255, 0.3);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(0, 204, 255, 0.16);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .timer,
+    .guest-counter {
+      display: none !important;
+    }
+
+    /* CHAT PANEL */
+
+    .chat-panel {
+      position: absolute;
+      left: 50%;
+      bottom: 88px;
+      transform: translateX(-50%) translateY(20px);
+      width: min(430px, calc(100% - 24px));
+      height: min(430px, 48dvh);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 20px;
+      background: rgba(6, 10, 28, 0.97);
+      border: 1px solid rgba(0, 204, 255, 0.45);
       box-shadow:
-        0 0 13px rgba(37, 99, 235, 0.7),
-        inset 0 0 10px rgba(37, 99, 235, 0.12);
-
-      backdrop-filter: blur(7px);
-
-      transition:
-        transform 0.15s ease,
-        box-shadow 0.15s ease;
+        0 0 25px rgba(0, 204, 255, 0.2),
+        0 15px 45px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.22s ease;
     }
 
-    .control-box:active {
-      transform: scale(0.92);
+    .chat-panel.open {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
     }
 
-    /* =========================================
-       COIN
-    ========================================== */
-
-    .coin-control-box {
-      border-color: #7c3aed;
-
-      background:
-        rgba(20, 8, 45, 0.92);
-
-      box-shadow:
-        0 0 14px rgba(124, 58, 237, 0.75),
-        inset 0 0 10px rgba(168, 85, 247, 0.15);
+    .chat-header {
+      height: 52px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px 0 17px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* =========================================
-       OLD CHAT CONTROLS
-    ========================================== */
-
-    .chat-controls {
-      margin: 0;
-
-      padding: 0;
+    .chat-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
     }
 
-    /* =========================================
-       MOBILE
-    ========================================== */
+    .chat-close {
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+    }
 
-    @media (max-width: 700px) {
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-      .chat-main {
-        padding:
-          4px
-          5px
-          env(safe-area-inset-bottom, 0px);
+    .chat-empty {
+      margin: auto;
+      text-align: center;
+      color: #7f8ba8;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .chat-message {
+      max-width: 80%;
+      padding: 9px 12px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .chat-message.me {
+      align-self: flex-end;
+      background: rgba(0, 190, 255, 0.16);
+      border: 1px solid rgba(0, 204, 255, 0.3);
+    }
+
+    .chat-message.partner {
+      align-self: flex-start;
+      background: rgba(255, 0, 170, 0.13);
+      border: 1px solid rgba(255, 0, 170, 0.25);
+    }
+
+    .chat-form {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .chat-input {
+      flex: 1;
+      min-width: 0;
+      height: 42px;
+      padding: 0 13px;
+      border-radius: 12px;
+      outline: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 13px;
+    }
+
+    .chat-input::placeholder {
+      color: #68748e;
+    }
+
+    .chat-send {
+      width: 48px;
+      height: 42px;
+      border: 1px solid rgba(0, 204, 255, 0.55);
+      border-radius: 12px;
+      background: rgba(0, 180, 255, 0.12);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .chat-send:disabled,
+    .chat-input:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .swipe-hint {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 8;
+      pointer-events: none;
+      opacity: 0;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+      transition: opacity 0.25s ease;
+    }
+
+    @media (max-width: 600px) {
+      .video-area {
+        padding: 7px;
       }
 
       .video-grid {
-        gap: 3px;
-
-        padding-bottom:
-          env(safe-area-inset-bottom, 0px);
+        gap: 7px;
       }
 
       .video-box {
-        height: calc(
-          (
-            100% -
-            3px -
-            env(safe-area-inset-bottom, 0px)
-          ) / 2
-        );
-
-        flex-basis: calc(
-          (
-            100% -
-            3px -
-            env(safe-area-inset-bottom, 0px)
-          ) / 2
-        );
-
-        border-radius: 15px;
+        border-radius: 14px;
       }
-
-      .video-box::before {
-        border-radius: 15px;
-      }
-
-      /* VizoChat */
-
-      .video-label {
-        left: 9px;
-
-        bottom: 8px;
-
-        font-size: 15px;
-
-        gap: 6px;
-      }
-
-      .video-label-logo {
-        width: 34px;
-        height: 34px;
-
-        border-radius: 9px;
-      }
-
-      .video-label-logo::after {
-        font-size: 22px;
-      }
-
-      /* Cut + Report */
 
       .top-actions {
-        top: 7px;
-
-        right: 7px;
-
-        height: 45px;
-
-        padding: 0 4px;
-      }
-
-      .top-action-button {
-        height: 36px;
-
-        padding: 0 9px;
-
-        font-size: 13px;
-
-        gap: 4px;
-      }
-
-      .report-action {
-        padding-left: 10px;
-      }
-
-      /* Like */
-
-      .like-floating {
+        top: 9px;
         right: 9px;
-
-        bottom: 8px;
-
-        width: 54px;
-        height: 54px;
-
-        font-size: 27px;
       }
 
-      /* Like timer */
-
-      #likeValidationTimer {
-        top: 60px;
-
-        left: 9px;
-
+      .action-button {
+        height: 38px;
+        min-width: 38px;
+        padding: 0 10px;
         font-size: 12px;
-
-        padding: 7px 10px;
       }
 
-      /* Controls */
-
-      .your-video-controls {
-        left: 10px;
-
-        bottom: 8px;
-
-        gap: 11px;
-      }
-
-      .control-box {
-        width: 55px;
-        height: 55px;
-
-        min-width: 55px;
-        min-height: 55px;
-
-        font-size: 24px;
-      }
-
-      /* Status */
-
-      .chat-status {
-        bottom: 7px;
-
+      .status {
+        top: 9px;
         max-width: 42%;
-
-        font-size: 9px;
-      }
-    }
-
-    /* =========================================
-       SMALL MOBILE
-    ========================================== */
-
-    @media (max-width: 380px) {
-
-      .chat-main {
-        padding-left: 4px;
-        padding-right: 4px;
+        font-size: 11px;
+        padding: 8px 11px;
       }
 
-      .your-video-controls {
-        left: 8px;
-
-        bottom: 7px;
-
-        gap: 8px;
+      .local-controls {
+        bottom: 12px;
+        gap: 7px;
+        padding: 7px 9px;
+        border-radius: 15px;
       }
 
-      .control-box {
-        width: 51px;
-        height: 51px;
-
-        min-width: 51px;
-        min-height: 51px;
-
-        font-size: 22px;
+      .control-button {
+        width: 43px;
+        height: 43px;
+        font-size: 19px;
+        border-radius: 12px;
       }
 
-      .like-floating {
-        width: 50px;
-        height: 50px;
-
-        font-size: 25px;
+      .like-wrapper {
+        right: 9px;
+        bottom: 10px;
       }
 
-      .top-action-button {
-        padding: 0 7px;
-
-        font-size: 12px;
-      }
-    }
-
-    /* =========================================
-       LANDSCAPE MOBILE
-    ========================================== */
-
-    @media (
-      max-width: 900px
-    ) and (
-      orientation: landscape
-    ) {
-
-      .your-video-controls {
-        bottom: 6px;
+      #likeBtn {
+        width: 46px;
+        height: 46px;
+        font-size: 20px;
       }
 
-      .control-box {
-        width: 48px;
-        height: 48px;
-
-        min-width: 48px;
-        min-height: 48px;
-
-        font-size: 21px;
+      .chat-panel {
+        bottom: 76px;
+        height: 52dvh;
       }
     }
   </style>
 </head>
 
 <body>
+  <main class="chat-page">
+    <section class="chat-main">
 
-  <div class="chat-page">
-
-    <!-- =====================================
-         MAIN
-    ====================================== -->
-
-    <main class="chat-main">
-
-      <section class="video-area">
-
-        <!-- =================================
-             TWO EQUAL VIDEO BOXES
-        ================================== -->
+      <div class="video-area" id="videoArea">
 
         <div class="video-grid">
 
-          <!-- =================================
-               STRANGER VIDEO
-          ================================== -->
-
-          <div class="video-box">
+          <!-- REMOTE VIDEO -->
+          <div class="video-box remote">
 
             <video
               id="remoteVideo"
               autoplay
               playsinline
+              muted
             ></video>
 
-            <div
-              id="remotePlaceholder"
-              class="video-placeholder"
-            >
-              Looking for someone...
+            <div class="video-placeholder" id="remotePlaceholder">
+              <div class="placeholder-icon">🔎</div>
+              <div class="placeholder-title">Looking for someone...</div>
+              <div class="placeholder-text">
+                Please wait while VizoChat finds a random person for you.
+              </div>
             </div>
-
-            <!-- VIZOCHAT -->
-
-            <div class="video-label">
-
-              <div
-                class="video-label-logo"
-              ></div>
-
-              <span>
-                VizoChat
-              </span>
-
-            </div>
-
-            <!-- CUT + REPORT -->
 
             <div class="top-actions">
-
               <button
-                id="nextBtn"
-                class="top-action-button"
                 type="button"
-                title="Find another person"
-              >
-                ✂️ Cut
-              </button>
-
-              <button
                 id="reportBtn"
-                class="top-action-button report-action"
-                type="button"
+                class="action-button report-button"
                 disabled
-                title="Report this user"
               >
                 ⚠️ Report
               </button>
-
             </div>
 
-            <!-- LIKE -->
-
-            <button
-              id="likeBtn"
-              class="like-floating"
-              type="button"
-              disabled
-              title="Like"
-              aria-label="Like"
-            >
-              ❤️
-            </button>
+            <div class="like-wrapper">
+              <button
+                type="button"
+                id="likeBtn"
+                disabled
+                title="Like"
+              >
+                ❤️
+              </button>
+            </div>
 
           </div>
 
-          <!-- =================================
-               YOUR VIDEO
-          ================================== -->
-
-          <div class="video-box">
+          <!-- LOCAL VIDEO -->
+          <div class="video-box local">
 
             <video
               id="localVideo"
@@ -940,243 +566,133 @@
               muted
             ></video>
 
-            <div
-              id="localPlaceholder"
-              class="video-placeholder"
-            >
-              Camera is starting...
+            <div class="video-placeholder" id="localPlaceholder">
+              <div class="placeholder-icon">📷</div>
+              <div class="placeholder-title">Starting camera...</div>
+              <div class="placeholder-text">
+                Allow camera and microphone access to start chatting.
+              </div>
             </div>
-
-            <!-- YOU -->
-
-            <div class="video-label">
-              You
-            </div>
-
-            <!-- =================================
-                 CHAT / CAMERA / COIN
-            ================================== -->
-
-            <div
-              class="your-video-controls"
-            >
-
-              <!-- CHAT -->
-
-              <button
-                id="chatBtn"
-                class="control-box"
-                type="button"
-                title="Chat"
-                aria-label="Chat"
-              >
-                💬
-              </button>
-
-              <!-- CAMERA -->
-
-              <button
-                id="cameraBtn"
-                class="control-box"
-                type="button"
-                title="Camera"
-                aria-label="Camera"
-              >
-                📷
-              </button>
-
-              <!-- COIN -->
-
-              <button
-                id="coinBtn"
-                class="control-box coin-control-box"
-                type="button"
-                title="Coins"
-                aria-label="Coins"
-              >
-                🪙
-              </button>
-
-            </div>
-
-            <!-- OLD MIC
-                 KEPT FOR JS COMPATIBILITY -->
-
-            <button
-              id="micBtn"
-              type="button"
-            >
-              🎤 Mic
-            </button>
 
           </div>
 
         </div>
 
-        <!-- =================================
-             STATUS
-        ================================== -->
-
-        <div
-          id="status"
-          class="chat-status"
-        >
-          Starting VizoChat...
+        <div class="swipe-hint" id="swipeHint">
+          Swipe to meet someone else
         </div>
 
-        <!-- OLD TIMER -->
-
-        <div
-          id="timer"
-          class="timer"
-        >
-          Match Time: 00:00
+        <!-- STATUS -->
+        <div class="status" id="status">
+          Starting camera...
         </div>
 
-        <!-- OLD GUEST COUNTER -->
+        <div class="timer" id="timer">00:00</div>
+        <div class="guest-counter" id="guestCounter"></div>
 
-        <div
-          id="guestCounter"
-          class="guest-info"
-        >
-          Guest Matches: 0/10
+        <!-- CHAT PANEL -->
+        <div class="chat-panel" id="chatPanel">
+
+          <div class="chat-header">
+            <div class="chat-title">💬 Chat</div>
+
+            <button
+              type="button"
+              class="chat-close"
+              id="chatCloseBtn"
+              aria-label="Close chat"
+            >
+              ×
+            </button>
+          </div>
+
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-empty" id="chatEmpty">
+              Say hello 👋
+            </div>
+          </div>
+
+          <form class="chat-form" id="chatForm">
+
+            <input
+              type="text"
+              id="chatInput"
+              class="chat-input"
+              maxlength="500"
+              autocomplete="off"
+              placeholder="Type a message..."
+              disabled
+            />
+
+            <button
+              type="submit"
+              id="chatSendBtn"
+              class="chat-send"
+              disabled
+            >
+              ➤
+            </button>
+
+          </form>
+
         </div>
 
-      </section>
+        <!-- BOTTOM CONTROLS -->
+        <div class="local-controls">
 
-    </main>
+          <button
+            type="button"
+            id="chatBtn"
+            class="control-button"
+            title="Chat"
+          >
+            💬
+          </button>
 
-    <!-- =====================================
-         FOOTER
-    ====================================== -->
+          <button
+            type="button"
+            id="cameraBtn"
+            class="control-button active"
+            title="Camera"
+          >
+            📷
+          </button>
 
-    <footer class="site-footer">
+          <button
+            type="button"
+            id="coinBtn"
+            class="control-button coin"
+            title="Coins"
+          >
+            🪙
+          </button>
 
-      <div class="container">
+          <button
+            type="button"
+            id="micBtn"
+            class="control-button"
+            title="Microphone"
+            style="display:none;"
+          >
+            🎤
+          </button>
 
-        <p>
-          ©
-          <span id="year"></span>
-          VizoChat. All rights reserved.
-        </p>
+        </div>
 
       </div>
 
-    </footer>
+    </section>
+  </main>
 
-  </div>
+  <script src="js/app.js?v=12"></script>
+  <script src="js/auth.js?v=12"></script>
 
-  <!-- =====================================
-       JAVASCRIPT
-  ====================================== -->
+  <script
+    src="https://cdn.socket.io/4.8.1/socket.io.min.js"
+    crossorigin="anonymous"
+  ></script>
 
-  <script src="./js/app.js?v=11"></script>
-
-  <script src="./js/auth.js?v=11"></script>
-
-  <script src="./js/like.js?v=11"></script>
-
-  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-
-  <script src="./js/chat.js?v=11"></script>
-
-  <!-- =====================================
-       ERROR DETECTOR
-  ====================================== -->
-
-  <script>
-
-    window.addEventListener(
-      "error",
-      function (event) {
-
-        console.error(
-          "VizoChat JavaScript Error:",
-          event.error || event.message
-        );
-
-        const box =
-          document.getElementById("status");
-
-        if (box) {
-
-          box.textContent =
-            "JavaScript Error: " +
-            (
-              event.message ||
-              "Unknown error"
-            );
-
-        }
-
-      }
-    );
-
-    window.addEventListener(
-      "unhandledrejection",
-      function (event) {
-
-        console.error(
-          "VizoChat Promise Error:",
-          event.reason
-        );
-
-        const box =
-          document.getElementById("status");
-
-        if (box) {
-
-          box.textContent =
-            "Connection Error. Please reload.";
-
-        }
-
-      }
-    );
-
-    window.addEventListener(
-      "load",
-      function () {
-
-        const year =
-          document.getElementById("year");
-
-        if (year) {
-
-          year.textContent =
-            new Date().getFullYear();
-
-        }
-
-        setTimeout(
-          function () {
-
-            if (!window.VizoChat) {
-
-              const box =
-                document.getElementById("status");
-
-              if (box) {
-
-                box.textContent =
-                  "VizoChat chat.js load nahi hua. Check JavaScript files.";
-
-              }
-
-              console.error(
-                "VizoChat: window.VizoChat is missing."
-              );
-
-            }
-
-          },
-          2000
-        );
-
-      }
-    );
-
-  </script>
-
+  <script src="js/like.js?v=12"></script>
+  <script src="js/chat.js?v=12"></script>
 </body>
 </html>
