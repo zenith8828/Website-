@@ -10,10 +10,46 @@ const {
 
 const {
   getUserById,
+  createUser,
   banUser
 } = require("../models/user");
 
 const reports = new Map();
+
+function ensureReportedUserExists(reportedUserId) {
+  let user = getUserById(reportedUserId);
+
+  if (user) {
+    return user;
+  }
+
+  /*
+   * Random chat में सामने वाला Guest भी हो सकता है।
+   * Guest हमेशा users Map में पहले से मौजूद नहीं होता।
+   * इसलिए report आने पर basic user record बना देते हैं।
+   */
+  try {
+    user = createUser({
+      id: reportedUserId,
+      name: "VizoChat User"
+    });
+
+    return user;
+  } catch (error) {
+    console.warn(
+      "Unable to create reported user record:",
+      error
+    );
+
+    /*
+     * अगर user किसी race condition में अभी create हुआ है,
+     * तो दोबारा check करें।
+     */
+    user = getUserById(reportedUserId);
+
+    return user || null;
+  }
+}
 
 function createUserReport({
   reporterId,
@@ -33,7 +69,8 @@ function createUserReport({
     );
   }
 
-  const reportedUser = getUserById(reportedUserId);
+  const reportedUser =
+    ensureReportedUserExists(reportedUserId);
 
   if (!reportedUser) {
     throw new Error(
@@ -41,7 +78,8 @@ function createUserReport({
     );
   }
 
-  const reportId = crypto.randomUUID();
+  const reportId =
+    crypto.randomUUID();
 
   const report = {
     id: reportId,
@@ -54,11 +92,15 @@ function createUserReport({
     processedAt: null
   };
 
-  reports.set(reportId, report);
-
-  const banResult = checkAndApplyAutomaticBan(
-    reportedUserId
+  reports.set(
+    reportId,
+    report
   );
+
+  const banResult =
+    checkAndApplyAutomaticBan(
+      reportedUserId
+    );
 
   return {
     report,
@@ -72,48 +114,69 @@ function getRecentReportsForUser(userId) {
   const windowMs =
     REPORT_WINDOW_MINUTES * 60 * 1000;
 
-  return Array.from(reports.values()).filter(
-    (report) => {
-      if (report.reportedUserId !== userId) {
-        return false;
-      }
-
-      const reportTime =
-        new Date(report.createdAt).getTime();
-
-      return now - reportTime <= windowMs;
+  return Array.from(
+    reports.values()
+  ).filter((report) => {
+    if (
+      report.reportedUserId !==
+      userId
+    ) {
+      return false;
     }
-  );
+
+    const reportTime =
+      new Date(
+        report.createdAt
+      ).getTime();
+
+    return (
+      now - reportTime <=
+      windowMs
+    );
+  });
 }
 
 function getReportCountForUser(userId) {
-  return getRecentReportsForUser(userId).length;
+  return getRecentReportsForUser(
+    userId
+  ).length;
 }
 
 function checkAndApplyAutomaticBan(userId) {
   const recentReports =
-    getRecentReportsForUser(userId);
+    getRecentReportsForUser(
+      userId
+    );
 
-  if (recentReports.length < REPORT_BAN_LIMIT) {
+  if (
+    recentReports.length <
+    REPORT_BAN_LIMIT
+  ) {
     return {
       banned: false,
-      reportCount: recentReports.length
+      reportCount:
+        recentReports.length
     };
   }
 
-  const user = getUserById(userId);
+  const user =
+    getUserById(userId);
 
   if (!user) {
     return {
       banned: false,
-      reportCount: recentReports.length
+      reportCount:
+        recentReports.length
     };
   }
 
   const alreadyBanned =
     user.status === "banned" &&
     user.bannedUntil &&
-    new Date() < new Date(user.bannedUntil);
+    new Date() <
+      new Date(
+        user.bannedUntil
+      );
 
   if (!alreadyBanned) {
     banUser(
@@ -122,37 +185,57 @@ function checkAndApplyAutomaticBan(userId) {
     );
   }
 
-  for (const report of recentReports) {
-    report.status = "processed";
-    report.processedAt = new Date();
+  for (
+    const report of recentReports
+  ) {
+    report.status =
+      "processed";
+
+    report.processedAt =
+      new Date();
   }
+
+  const updatedUser =
+    getUserById(userId);
 
   return {
     banned: true,
-    reportCount: recentReports.length,
-    banDays: AUTOMATIC_BAN_DAYS,
+    reportCount:
+      recentReports.length,
+    banDays:
+      AUTOMATIC_BAN_DAYS,
     bannedUntil:
-      getUserById(userId)?.bannedUntil || null
+      updatedUser?.bannedUntil ||
+      null
   };
 }
 
 function getReportById(reportId) {
-  return reports.get(reportId) || null;
+  return (
+    reports.get(reportId) ||
+    null
+  );
 }
 
 function getAllReports() {
-  return Array.from(reports.values());
+  return Array.from(
+    reports.values()
+  );
 }
 
 function processReport(reportId) {
-  const report = reports.get(reportId);
+  const report =
+    reports.get(reportId);
 
   if (!report) {
     return null;
   }
 
-  report.status = "processed";
-  report.processedAt = new Date();
+  report.status =
+    "processed";
+
+  report.processedAt =
+    new Date();
 
   return report;
 }
@@ -161,14 +244,28 @@ function cleanupOldReports() {
   const now = Date.now();
 
   const windowMs =
-    REPORT_WINDOW_MINUTES * 60 * 1000;
+    REPORT_WINDOW_MINUTES *
+    60 *
+    1000;
 
-  for (const [reportId, report] of reports.entries()) {
+  for (
+    const [
+      reportId,
+      report
+    ] of reports.entries()
+  ) {
     const reportTime =
-      new Date(report.createdAt).getTime();
+      new Date(
+        report.createdAt
+      ).getTime();
 
-    if (now - reportTime > windowMs) {
-      reports.delete(reportId);
+    if (
+      now - reportTime >
+      windowMs
+    ) {
+      reports.delete(
+        reportId
+      );
     }
   }
 }
