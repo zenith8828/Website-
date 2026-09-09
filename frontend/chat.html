@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -35,13 +36,22 @@
 
     .chat-page {
       width: 100%;
-      height: 100dvh;
-      min-height: 100vh;
+      height: 100svh;
+      min-height: 0;
       position: relative;
       overflow: hidden;
+
       background:
-        radial-gradient(circle at 20% 20%, rgba(0, 204, 255, 0.08), transparent 30%),
-        radial-gradient(circle at 80% 70%, rgba(255, 0, 170, 0.08), transparent 30%),
+        radial-gradient(
+          circle at 20% 20%,
+          rgba(0, 204, 255, 0.08),
+          transparent 30%
+        ),
+        radial-gradient(
+          circle at 80% 70%,
+          rgba(255, 0, 170, 0.08),
+          transparent 30%
+        ),
         #050816;
     }
 
@@ -54,6 +64,7 @@
     .video-area {
       width: 100%;
       height: 100%;
+      min-height: 0;
       position: relative;
       padding: 10px;
       overflow: hidden;
@@ -63,6 +74,8 @@
     .video-grid {
       width: 100%;
       height: 100%;
+      min-height: 0;
+
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -73,10 +86,15 @@
       width: 100%;
       height: calc(50% - 5px);
       min-height: 0;
+
       overflow: hidden;
+
       border-radius: 18px;
+
       background: #080d1f;
+
       border: 2px solid rgba(0, 204, 255, 0.85);
+
       box-shadow:
         0 0 10px rgba(0, 204, 255, 0.65),
         inset 0 0 20px rgba(0, 204, 255, 0.05);
@@ -84,6 +102,7 @@
 
     .video-box.remote {
       border-color: rgba(0, 204, 255, 0.9);
+
       box-shadow:
         0 0 14px rgba(0, 204, 255, 0.7),
         inset 0 0 20px rgba(0, 204, 255, 0.06);
@@ -91,6 +110,7 @@
 
     .video-box.local {
       border-color: rgba(255, 0, 180, 0.9);
+
       box-shadow:
         0 0 14px rgba(255, 0, 180, 0.65),
         inset 0 0 20px rgba(255, 0, 180, 0.06);
@@ -100,7 +120,9 @@
       width: 100%;
       height: 100%;
       display: block;
+
       object-fit: cover;
+
       background: #080d1f;
     }
 
@@ -111,17 +133,29 @@
     .video-placeholder {
       position: absolute;
       inset: 0;
+
       display: flex;
       align-items: center;
       justify-content: center;
+
       flex-direction: column;
+
       gap: 10px;
+
       text-align: center;
+
       padding: 20px;
+
       color: #dce8ff;
+
       background:
-        radial-gradient(circle at center, rgba(0, 204, 255, 0.08), transparent 55%),
+        radial-gradient(
+          circle at center,
+          rgba(0, 204, 255, 0.08),
+          transparent 55%
+        ),
         #080d1f;
+
       z-index: 2;
     }
 
@@ -131,7 +165,11 @@
 
     .placeholder-icon {
       font-size: 38px;
-      filter: drop-shadow(0 0 10px rgba(0, 204, 255, 0.7));
+
+      filter:
+        drop-shadow(
+          0 0 10px rgba(0, 204, 255, 0.7)
+        );
     }
 
     .placeholder-title {
@@ -141,35 +179,53 @@
 
     .placeholder-text {
       color: #8e9bb9;
+
       font-size: 13px;
+
       max-width: 260px;
+
       line-height: 1.5;
     }
 
-    /* TOP BUTTONS */
+    /* TOP ACTIONS */
 
     .top-actions {
       position: absolute;
+
       top: 12px;
       right: 12px;
+
       display: flex;
+
       gap: 8px;
+
       z-index: 10;
     }
 
     .action-button {
       min-width: 42px;
       height: 42px;
+
       padding: 0 13px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
+
+      border:
+        1px solid rgba(255, 255, 255, 0.18);
+
       border-radius: 12px;
+
       color: #fff;
-      background: rgba(5, 8, 22, 0.78);
+
+      background:
+        rgba(5, 8, 22, 0.78);
+
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
+
       font-size: 13px;
       font-weight: 700;
+
       cursor: pointer;
+
       transition: 0.2s ease;
     }
 
@@ -178,8 +234,11 @@
     }
 
     .report-button {
-      border-color: rgba(255, 80, 100, 0.55);
-      box-shadow: 0 0 10px rgba(255, 80, 100, 0.2);
+      border-color:
+        rgba(255, 80, 100, 0.55);
+
+      box-shadow:
+        0 0 10px rgba(255, 80, 100, 0.2);
     }
 
     .report-button:disabled {
@@ -191,22 +250,33 @@
 
     .like-wrapper {
       position: absolute;
+
       right: 14px;
       bottom: 14px;
+
       z-index: 10;
     }
 
     #likeBtn {
       width: 52px;
       height: 52px;
-      border: 1px solid rgba(255, 70, 170, 0.8);
+
+      border:
+        1px solid rgba(255, 70, 170, 0.8);
+
       border-radius: 50%;
+
       color: #fff;
-      background: rgba(10, 8, 25, 0.82);
+
+      background:
+        rgba(10, 8, 25, 0.82);
+
       box-shadow:
         0 0 12px rgba(255, 0, 180, 0.55),
         inset 0 0 12px rgba(255, 0, 180, 0.08);
+
       font-size: 23px;
+
       cursor: pointer;
     }
 
@@ -217,20 +287,29 @@
 
     /* =========================================
        CHAT / CAMERA / COIN
-       VIDEO AREA KE ANDAR HI RAHENGE
-    ========================================= */
+       VIDEO AREA KE ANDAR
+       ========================================= */
 
     .local-controls {
       position: absolute;
 
       left: 50%;
-      bottom: 20px;
+
+      /*
+       * Controls video-area ke andar rahenge
+       * aur bottom navigation ke upar rahenge.
+       */
+      bottom:
+        calc(
+          env(safe-area-inset-bottom, 0px) + 18px
+        );
 
       transform: translateX(-50%);
 
-      z-index: 20;
+      z-index: 30;
 
       display: flex;
+
       align-items: center;
       justify-content: center;
 
@@ -240,26 +319,31 @@
 
       border-radius: 18px;
 
-      background: rgba(4, 7, 20, 0.78);
+      background:
+        rgba(4, 7, 20, 0.82);
 
-      border: 1px solid rgba(0, 204, 255, 0.25);
+      border:
+        1px solid rgba(0, 204, 255, 0.30);
 
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
 
       box-shadow:
-        0 0 18px rgba(0, 0, 0, 0.35);
+        0 0 18px rgba(0, 0, 0, 0.35),
+        0 0 15px rgba(0, 204, 255, 0.08);
     }
 
     .control-button {
       width: 48px;
       height: 48px;
 
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border:
+        1px solid rgba(255, 255, 255, 0.15);
 
       border-radius: 14px;
 
-      background: rgba(13, 18, 40, 0.9);
+      background:
+        rgba(13, 18, 40, 0.9);
 
       color: #fff;
 
@@ -275,31 +359,45 @@
     }
 
     .control-button.active {
-      border-color: rgba(0, 220, 255, 0.85);
-      box-shadow: 0 0 12px rgba(0, 220, 255, 0.45);
+      border-color:
+        rgba(0, 220, 255, 0.85);
+
+      box-shadow:
+        0 0 12px rgba(0, 220, 255, 0.45);
     }
 
     .control-button.camera-off {
-      border-color: rgba(255, 70, 100, 0.8);
-      box-shadow: 0 0 12px rgba(255, 70, 100, 0.35);
+      border-color:
+        rgba(255, 70, 100, 0.8);
+
+      box-shadow:
+        0 0 12px rgba(255, 70, 100, 0.35);
     }
 
     .control-button.coin {
-      border-color: rgba(255, 200, 60, 0.65);
-      box-shadow: 0 0 10px rgba(255, 200, 60, 0.2);
+      border-color:
+        rgba(255, 200, 60, 0.65);
+
+      box-shadow:
+        0 0 10px rgba(255, 200, 60, 0.2);
     }
 
     /* STATUS */
 
     .status {
       position: absolute;
+
       left: 50%;
       top: 12px;
+
       transform: translateX(-50%);
+
       z-index: 15;
 
       min-width: 150px;
-      max-width: calc(100% - 190px);
+
+      max-width:
+        calc(100% - 190px);
 
       padding: 9px 16px;
 
@@ -309,21 +407,26 @@
 
       color: #dffaff;
 
-      background: rgba(4, 9, 25, 0.78);
+      background:
+        rgba(4, 9, 25, 0.78);
 
-      border: 1px solid rgba(0, 204, 255, 0.3);
+      border:
+        1px solid rgba(0, 204, 255, 0.3);
 
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
 
       font-size: 13px;
+
       font-weight: 700;
 
       box-shadow:
         0 0 12px rgba(0, 204, 255, 0.16);
 
       white-space: nowrap;
+
       overflow: hidden;
+
       text-overflow: ellipsis;
     }
 
@@ -339,29 +442,33 @@
 
       left: 50%;
 
-      /*
-       * Chat panel bhi video area ke andar hai.
-       * Controls ke upar open hoga.
-       */
       bottom: 88px;
 
-      transform: translateX(-50%) translateY(20px);
+      transform:
+        translateX(-50%)
+        translateY(20px);
 
-      width: min(430px, calc(100% - 24px));
-      height: min(430px, 48dvh);
+      width:
+        min(430px, calc(100% - 24px));
+
+      height:
+        min(430px, 48dvh);
 
       z-index: 50;
 
       display: flex;
+
       flex-direction: column;
 
       overflow: hidden;
 
       border-radius: 20px;
 
-      background: rgba(6, 10, 28, 0.97);
+      background:
+        rgba(6, 10, 28, 0.97);
 
-      border: 1px solid rgba(0, 204, 255, 0.45);
+      border:
+        1px solid rgba(0, 204, 255, 0.45);
 
       box-shadow:
         0 0 25px rgba(0, 204, 255, 0.2),
@@ -371,28 +478,38 @@
       -webkit-backdrop-filter: blur(16px);
 
       opacity: 0;
+
       pointer-events: none;
 
       transition: 0.22s ease;
     }
 
     .chat-panel.open {
-      transform: translateX(-50%) translateY(0);
+      transform:
+        translateX(-50%)
+        translateY(0);
+
       opacity: 1;
+
       pointer-events: auto;
     }
 
     .chat-header {
       height: 52px;
+
       flex-shrink: 0;
 
       display: flex;
+
       align-items: center;
+
       justify-content: space-between;
 
-      padding: 0 14px 0 17px;
+      padding:
+        0 14px 0 17px;
 
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom:
+        1px solid rgba(255, 255, 255, 0.08);
     }
 
     .chat-title {
@@ -406,9 +523,11 @@
       height: 34px;
 
       border: 0;
+
       border-radius: 10px;
 
-      background: rgba(255, 255, 255, 0.08);
+      background:
+        rgba(255, 255, 255, 0.08);
 
       color: #fff;
 
@@ -425,6 +544,7 @@
       padding: 14px;
 
       display: flex;
+
       flex-direction: column;
 
       gap: 8px;
@@ -459,17 +579,21 @@
     .chat-message.me {
       align-self: flex-end;
 
-      background: rgba(0, 190, 255, 0.16);
+      background:
+        rgba(0, 190, 255, 0.16);
 
-      border: 1px solid rgba(0, 204, 255, 0.3);
+      border:
+        1px solid rgba(0, 204, 255, 0.3);
     }
 
     .chat-message.partner {
       align-self: flex-start;
 
-      background: rgba(255, 0, 170, 0.13);
+      background:
+        rgba(255, 0, 170, 0.13);
 
-      border: 1px solid rgba(255, 0, 170, 0.25);
+      border:
+        1px solid rgba(255, 0, 170, 0.25);
     }
 
     .chat-form {
@@ -479,7 +603,8 @@
 
       padding: 10px;
 
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-top:
+        1px solid rgba(255, 255, 255, 0.08);
     }
 
     .chat-input {
@@ -495,9 +620,11 @@
 
       outline: none;
 
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border:
+        1px solid rgba(255, 255, 255, 0.12);
 
-      background: rgba(255, 255, 255, 0.05);
+      background:
+        rgba(255, 255, 255, 0.05);
 
       color: #fff;
 
@@ -512,11 +639,13 @@
       width: 48px;
       height: 42px;
 
-      border: 1px solid rgba(0, 204, 255, 0.55);
+      border:
+        1px solid rgba(0, 204, 255, 0.55);
 
       border-radius: 12px;
 
-      background: rgba(0, 180, 255, 0.12);
+      background:
+        rgba(0, 180, 255, 0.12);
 
       color: #fff;
 
@@ -537,7 +666,8 @@
       left: 50%;
       top: 50%;
 
-      transform: translate(-50%, -50%);
+      transform:
+        translate(-50%, -50%);
 
       z-index: 8;
 
@@ -545,32 +675,46 @@
 
       opacity: 0;
 
-      color: rgba(255, 255, 255, 0.6);
+      color:
+        rgba(255, 255, 255, 0.6);
 
       font-size: 12px;
 
-      transition: opacity 0.25s ease;
+      transition:
+        opacity 0.25s ease;
     }
 
-    /* MOBILE */
+    /* =========================================
+       MOBILE
+       ========================================= */
 
     @media (max-width: 600px) {
 
+      .chat-page {
+        height: 100svh;
+        min-height: 0;
+      }
+
+      .chat-main {
+        height: 100%;
+        min-height: 0;
+      }
+
       .video-area {
-        /*
-         * IMPORTANT:
-         * Yahan padding-bottom nahi diya gaya.
-         * Isliye video full area mein rahega
-         * aur controls uske UPAR overlay honge.
-         */
+        height: 100%;
+        min-height: 0;
         padding: 7px;
       }
 
       .video-grid {
+        height: 100%;
+        min-height: 0;
         gap: 7px;
       }
 
       .video-box {
+        height: calc(50% - 3.5px);
+        min-height: 0;
         border-radius: 14px;
       }
 
@@ -581,25 +725,39 @@
 
       .action-button {
         height: 38px;
+
         min-width: 38px;
+
         padding: 0 10px;
+
         font-size: 12px;
       }
 
       .status {
         top: 9px;
+
         max-width: 42%;
+
         font-size: 11px;
+
         padding: 8px 11px;
       }
 
       /*
+       * IMPORTANT
+       *
        * Chat / Camera / Coin
-       * VIDEO BOX KE ANDAR
+       * lower video box ke andar
+       * bottom navigation ke upar.
        */
+
       .local-controls {
         left: 50%;
-        bottom: 12px;
+
+        bottom:
+          calc(
+            env(safe-area-inset-bottom, 0px) + 16px
+          );
 
         gap: 7px;
 
@@ -625,19 +783,18 @@
       #likeBtn {
         width: 46px;
         height: 46px;
+
         font-size: 20px;
       }
 
-      /*
-       * Chat panel controls ke upar
-       */
       .chat-panel {
         bottom: 76px;
+
         height: 52dvh;
       }
     }
 
-    /* SMALL PHONES */
+    /* SMALL MOBILE */
 
     @media (max-width: 380px) {
 
@@ -650,18 +807,25 @@
       }
 
       .video-box {
+        height: calc(50% - 3px);
         border-radius: 12px;
       }
 
       .local-controls {
-        bottom: 10px;
+        bottom:
+          calc(
+            env(safe-area-inset-bottom, 0px) + 14px
+          );
+
         gap: 5px;
+
         padding: 6px 7px;
       }
 
       .control-button {
         width: 41px;
         height: 40px;
+
         font-size: 18px;
       }
 
@@ -672,8 +836,11 @@
 
       .action-button {
         min-width: 37px;
+
         height: 35px;
+
         padding: 0 7px;
+
         font-size: 11px;
       }
 
@@ -704,7 +871,10 @@
 
         <div class="video-grid">
 
-          <!-- REMOTE VIDEO -->
+          <!-- =========================
+               REMOTE VIDEO
+               ========================= -->
+
           <div class="video-box remote">
 
             <video
@@ -718,6 +888,7 @@
               class="video-placeholder"
               id="remotePlaceholder"
             >
+
               <div class="placeholder-icon">
                 🔎
               </div>
@@ -729,9 +900,11 @@
               <div class="placeholder-text">
                 Please wait while VizoChat finds a random person for you.
               </div>
+
             </div>
 
             <!-- REPORT -->
+
             <div class="top-actions">
 
               <button
@@ -746,6 +919,7 @@
             </div>
 
             <!-- LIKE -->
+
             <div class="like-wrapper">
 
               <button
@@ -762,7 +936,10 @@
           </div>
 
 
-          <!-- LOCAL VIDEO -->
+          <!-- =========================
+               LOCAL VIDEO
+               ========================= -->
+
           <div class="video-box local">
 
             <video
@@ -776,6 +953,7 @@
               class="video-placeholder"
               id="localPlaceholder"
             >
+
               <div class="placeholder-icon">
                 📷
               </div>
@@ -787,6 +965,65 @@
               <div class="placeholder-text">
                 Allow camera and microphone access to start chatting.
               </div>
+
+            </div>
+
+
+            <!--
+              CHAT / CAMERA / COIN
+              LOWER VIDEO BOX KE ANDAR
+            -->
+
+            <div class="local-controls">
+
+              <!-- CHAT -->
+
+              <button
+                type="button"
+                id="chatBtn"
+                class="control-button"
+                title="Chat"
+              >
+                💬
+              </button>
+
+
+              <!-- CAMERA -->
+
+              <button
+                type="button"
+                id="cameraBtn"
+                class="control-button active"
+                title="Camera"
+              >
+                📷
+              </button>
+
+
+              <!-- COIN -->
+
+              <button
+                type="button"
+                id="coinBtn"
+                class="control-button coin"
+                title="Coins"
+              >
+                🪙
+              </button>
+
+
+              <!-- MICROPHONE HIDDEN -->
+
+              <button
+                type="button"
+                id="micBtn"
+                class="control-button"
+                title="Microphone"
+                style="display:none;"
+              >
+                🎤
+              </button>
+
             </div>
 
           </div>
@@ -795,6 +1032,7 @@
 
 
         <!-- SWIPE -->
+
         <div
           class="swipe-hint"
           id="swipeHint"
@@ -804,6 +1042,7 @@
 
 
         <!-- STATUS -->
+
         <div
           class="status"
           id="status"
@@ -813,6 +1052,7 @@
 
 
         <!-- TIMER -->
+
         <div
           class="timer"
           id="timer"
@@ -822,13 +1062,17 @@
 
 
         <!-- GUEST COUNTER -->
+
         <div
           class="guest-counter"
           id="guestCounter"
         ></div>
 
 
-        <!-- CHAT PANEL -->
+        <!-- =========================
+             CHAT PANEL
+             ========================= -->
+
         <div
           class="chat-panel"
           id="chatPanel"
@@ -895,60 +1139,6 @@
 
         </div>
 
-
-        <!--
-          IMPORTANT:
-          Ye buttons video-area ke ANDAR hain.
-          Isliye mobile par bhi video ke upar hi rahenge.
-        -->
-        <div class="local-controls">
-
-          <!-- CHAT -->
-          <button
-            type="button"
-            id="chatBtn"
-            class="control-button"
-            title="Chat"
-          >
-            💬
-          </button>
-
-
-          <!-- CAMERA -->
-          <button
-            type="button"
-            id="cameraBtn"
-            class="control-button active"
-            title="Camera"
-          >
-            📷
-          </button>
-
-
-          <!-- COIN -->
-          <button
-            type="button"
-            id="coinBtn"
-            class="control-button coin"
-            title="Coins"
-          >
-            🪙
-          </button>
-
-
-          <!-- MIC HIDDEN -->
-          <button
-            type="button"
-            id="micBtn"
-            class="control-button"
-            title="Microphone"
-            style="display:none;"
-          >
-            🎤
-          </button>
-
-        </div>
-
       </div>
 
     </section>
@@ -957,21 +1147,30 @@
 
 
   <!-- APP -->
+
   <script src="js/app.js?v=12"></script>
 
+
   <!-- AUTH -->
+
   <script src="js/auth.js?v=12"></script>
 
+
   <!-- SOCKET.IO -->
+
   <script
     src="https://cdn.socket.io/4.8.1/socket.io.min.js"
     crossorigin="anonymous"
   ></script>
 
+
   <!-- LIKE -->
+
   <script src="js/like.js?v=12"></script>
 
+
   <!-- CHAT -->
+
   <script src="js/chat.js?v=12"></script>
 
 </body>
