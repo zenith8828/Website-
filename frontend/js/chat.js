@@ -2625,3 +2625,34 @@ if (
 } else {
   initializeChat();
 }
+/* -----------------------------------------
+   AUTO START ON PAGE LOAD / USER INTERACTION
+----------------------------------------- */
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    // 1. Pehle camera aur microphone request karein
+    await requestMedia();
+    
+    // 2. Phir socket connection banayein
+    await connectSocket();
+    
+    // 3. Status update karein
+    setStatus("Ready to find someone");
+  } catch (error) {
+    console.error("Initialization error:", error);
+  }
+});
+
+// Agar user manually camera button par click kare
+if (cameraButton) {
+  cameraButton.addEventListener("click", async () => {
+    if (!cameraEnabled) {
+      try {
+        await requestMedia();
+      } catch (err) {
+        console.error("Manual camera start failed:", err);
+      }
+    }
+  });
+}
+
